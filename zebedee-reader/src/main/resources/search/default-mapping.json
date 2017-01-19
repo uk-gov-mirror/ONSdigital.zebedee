@@ -22,6 +22,7 @@
             "type": "string",
             "analyzer": "ons_synonym_stem",
             "search_analyzer": "ons_stem",
+
             "fields": {
               "title_raw": {
                 "type": "string"
@@ -71,6 +72,25 @@
           },
           "releaseDate": {
             "type": "date"
+          }
+        }
+      },
+      "downloads" : {
+        "properties" : {
+          "content" : {
+            "type": "string",
+            "analyzer": "ons_synonym_stem_clear_dates",
+            "search_analyzer": "ons_stem_clear_dates",
+            "term_vector": "with_positions_offsets"
+          },
+          "file" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type": "string",
+            "analyzer": "ons_synonym_stem_clear_dates",
+            "search_analyzer": "ons_stem_clear_dates",
+            "term_vector": "with_positions_offsets"
           }
         }
       },

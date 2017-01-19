@@ -92,7 +92,12 @@
             <artifactId>dp-logging</artifactId>
             <version>master-SNAPSHOT</version>
         </dependency>
-
+        <!-- Document Parsing with TIKA -->
+        <dependency>
+            <groupId>org.apache.tika</groupId>
+            <artifactId>tika-parsers</artifactId>
+            <version>1.13</version>
+        </dependency>
     </dependencies>
 
     <build>

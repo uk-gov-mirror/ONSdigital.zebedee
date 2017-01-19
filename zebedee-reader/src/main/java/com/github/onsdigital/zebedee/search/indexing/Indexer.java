@@ -1,5 +1,6 @@
 package com.github.onsdigital.zebedee.search.indexing;
 
+import com.github.onsdigital.zebedee.content.page.base.DownloadablePage;
 import com.github.onsdigital.zebedee.content.page.base.Page;
 import com.github.onsdigital.zebedee.content.page.base.PageType;
 import com.github.onsdigital.zebedee.content.partial.Link;
@@ -21,6 +22,8 @@ import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeUnit;
 import org.elasticsearch.common.unit.ByteSizeValue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -40,6 +43,7 @@ import static org.apache.commons.lang3.StringUtils.isEmpty;
 import static org.apache.commons.lang3.StringUtils.startsWith;
 
 public class Indexer {
+    private static final Logger LOGGER = LoggerFactory.getLogger(Indexer.class);
     private final static String DEPARTMENTS_INDEX = "departments";
     private final static String DEPARTMENT_TYPE = "departments";
     private final static String DEPARTMENTS_PATH = "/search/departments/departments.txt";
@@ -58,8 +62,10 @@ public class Indexer {
 
     public static void main(String[] args) {
         try {
-            Indexer.getInstance().reload();
-        } catch (IOException e) {
+            Indexer.getInstance()
+                   .reload();
+        }
+        catch (IOException e) {
             e.printStackTrace();
         }
     }
@@ -75,7 +81,8 @@ public class Indexer {
                 boolean aliasAvailable = isIndexAvailable(searchAlias);
                 String oldIndex = searchUtils.getAliasIndex(searchAlias);
                 String newIndex = generateIndexName();
-                elasticSearchLog("Creating index").addParameter("newIndex", newIndex).log();
+                elasticSearchLog("Creating index").addParameter("newIndex", newIndex)
+                                                  .log();
                 searchUtils.createIndex(newIndex, getSettings(), getDefaultMapping());
 
                 if (aliasAvailable && oldIndex == null) {
@@ -84,20 +91,25 @@ public class Indexer {
                     searchUtils.deleteIndex(searchAlias);
                     searchUtils.addAlias(newIndex, searchAlias);
                     doLoad(newIndex);
-                } else if (oldIndex == null) {
+                }
+                else if (oldIndex == null) {
                     searchUtils.addAlias(newIndex, searchAlias);
                     doLoad(newIndex);
-                } else {
+                }
+                else {
                     doLoad(newIndex);
                     searchUtils.swapIndex(oldIndex, newIndex, searchAlias);
-                    elasticSearchLog("Deleting old index").addParameter("oldIndex", oldIndex).log();
+                    elasticSearchLog("Deleting old index").addParameter("oldIndex", oldIndex)
+                                                          .log();
                     searchUtils.deleteIndex(oldIndex);
                 }
-            } finally {
+            }
+            finally {
                 LOCK.unlock();
                 unlockGlobal();
             }
-        } else {
+        }
+        else {
             throw new IndexInProgressException();
         }
     }
@@ -153,7 +165,8 @@ public class Indexer {
 
         String[] split = line.split(" *=> *");
         if (split.length != 4) {
-            elasticSearchLog("Skipping invalid external department").addParameter("line", line).log();
+            elasticSearchLog("Skipping invalid external department").addParameter("line", line)
+                                                                    .log();
             return;
         }
         String[] terms = split[3].split(" *, *");
@@ -173,7 +186,8 @@ public class Indexer {
 
     public void reloadContent(String uri) throws IOException {
         try {
-            elasticSearchLog("Triggering reindex").addParameter("uri", uri).log();
+            elasticSearchLog("Triggering reindex").addParameter("uri", uri)
+                                                  .log();
             long start = System.currentTimeMillis();
             Page page = getPage(uri);
             if (page == null) {
@@ -183,7 +197,8 @@ public class Indexer {
                 //TODO: optimize resolving latest flag, only update elastic search for existing releases rather than reindexing
                 //Load old releases as well to get latest flag re-calculated
                 index(getSearchAlias(), new FileScanner().scan(URIUtils.removeLastSegment(uri)));
-            } else {
+            }
+            else {
                 indexSingleContent(getSearchAlias(), page);
             }
             long end = System.currentTimeMillis();
@@ -191,16 +206,19 @@ public class Indexer {
                     .addParameter("uri", uri)
                     .addParameter("totalTime(ms)", (start - end))
                     .log();
-        } catch (ZebedeeException e) {
+        }
+        catch (ZebedeeException e) {
             throw new IndexingException("Failed re-indexint content with uri: " + uri, e);
-        } catch (NoSuchFileException e) {
+        }
+        catch (NoSuchFileException e) {
             throw new IndexingException("Content not found for re-indexing, uri: " + uri);
         }
     }
 
 
     public void deleteContentIndex(String pageType, String uri) {
-        elasticSearchLog("Triggering delete index on publishing search index").addParameter("uri", uri).log();
+        elasticSearchLog("Triggering delete index on publishing search index").addParameter("uri", uri)
+                                                                              .log();
         long start = System.currentTimeMillis();
         searchUtils.deleteDocument(getSearchAlias(), pageType, uri);
         long end = System.currentTimeMillis();
@@ -261,7 +279,8 @@ public class Indexer {
                         continue;
                     }
                     bulkProcessor.add(indexRequestBuilder.request());
-                } catch (Exception e) {
+                }
+                catch (Exception e) {
                     System.err.println("!!!!!!!!!Failed preparing index for " + document.getUri() + " skipping...");
                     e.printStackTrace();
                 }
@@ -273,10 +292,15 @@ public class Indexer {
         return zebedeeReader.getPublishedContent(uri);
     }
 
-    private IndexRequestBuilder prepareIndexRequest(String indexName, Document document) throws ZebedeeException, IOException {
+    private IndexRequestBuilder prepareIndexRequest(String indexName,
+                                                    Document document) throws ZebedeeException, IOException {
         Page page = getPage(document.getUri());
         if (page != null && page.getType() != null) {
-            IndexRequestBuilder indexRequestBuilder = searchUtils.prepareIndex(indexName, page.getType().name(), page.getUri().toString());
+            IndexRequestBuilder indexRequestBuilder = searchUtils.prepareIndex(indexName,
+                                                                               page.getType()
+                                                                                   .name(),
+                                                                               page.getUri()
+                                                                                   .toString());
             indexRequestBuilder.setSource(serialise(toSearchDocument(page, document.getSearchTerms())));
             return indexRequestBuilder;
         }
@@ -284,12 +308,24 @@ public class Indexer {
     }
 
     private void indexSingleContent(String indexName, Page page) throws IOException {
-        List<String> terms = resolveSearchTerms(page.getUri().toString());
-        searchUtils.createDocument(indexName, page.getType().toString(), page.getUri().toString(), serialise(toSearchDocument(page, terms)));
+        List<String> terms = resolveSearchTerms(page.getUri()
+                                                    .toString());
+        searchUtils.createDocument(indexName,
+                                   page.getType()
+                                       .toString(),
+                                   page.getUri()
+                                       .toString(),
+                                   serialise(toSearchDocument(page, terms)));
+
     }
 
     private SearchDocument toSearchDocument(Page page, List<String> searchTerms) {
         SearchDocument indexDocument = new SearchDocument();
+
+        if (page instanceof DownloadablePage) {
+            DownloadablePage articleDownload = (DownloadablePage) page;
+            indexDocument.setDownloads(articleDownload.getDownloads());
+        }
         indexDocument.setUri(page.getUri());
         indexDocument.setDescription(page.getDescription());
         indexDocument.setTopics(getTopics(page.getTopics()));
@@ -311,29 +347,36 @@ public class Indexer {
     }
 
     private Settings getSettings() throws IOException {
-        Settings.Builder settingsBuilder = Settings.builder().
-                loadFromStream("index-config.yml", Indexer.class.getResourceAsStream("/search/index-config.yml"));
+        Settings.Builder settingsBuilder = Settings.builder()
+                                                   .loadFromStream("index-config.yml",
+                                                                   Indexer.class.getResourceAsStream(
+                                                                           "/search/index-config.yml"));
         elasticSearchLog("Index settings").addParameter("settings", settingsBuilder.internalMap());
         return settingsBuilder.build();
     }
 
     private Settings getDepartmentsSetting() {
-        Settings.Builder settingsBuilder = Settings.builder().
-                loadFromStream("departments-index-config.yml", Indexer.class.getResourceAsStream("/search/departments/departments-index-config.yml"));
+        Settings.Builder settingsBuilder = Settings.builder()
+                                                   .loadFromStream("departments-index-config.yml",
+                                                                   Indexer.class.getResourceAsStream(
+                                                                           "/search/departments/departments-index-config.yml"));
         return settingsBuilder.build();
     }
 
     private String getDefaultMapping() throws IOException {
         InputStream mappingSourceStream = Indexer.class.getResourceAsStream("/search/default-mapping.json");
         String mappingSource = IOUtils.toString(mappingSourceStream);
-        elasticSearchLog("defaultMapping").addParameter("mappingSource", mappingSource).log();
+        elasticSearchLog("defaultMapping").addParameter("mappingSource", mappingSource)
+                                          .log();
         return mappingSource;
     }
 
     private String getDepartmentsMapping() throws IOException {
-        InputStream mappingSourceStream = Indexer.class.getResourceAsStream("/search/departments/departments-mapping.json");
+        InputStream mappingSourceStream = Indexer.class.getResourceAsStream(
+                "/search/departments/departments-mapping.json");
         String mappingSource = IOUtils.toString(mappingSourceStream);
-        elasticSearchLog("departmentsMapping").addParameter("mappingSource", mappingSource).log();
+        elasticSearchLog("departmentsMapping").addParameter("mappingSource", mappingSource)
+                                              .log();
         return mappingSource;
     }
 
@@ -367,23 +410,24 @@ public class Indexer {
                     @Override
                     public void beforeBulk(
                             long executionId,
-                            BulkRequest request
-                    ) {
-                        elasticSearchLog("Bulk Indexing documents").addParameter("quantity", request.numberOfActions()).log();
+                            BulkRequest request) {
+                        elasticSearchLog("Bulk Indexing documents").addParameter("quantity", request.numberOfActions())
+                                                                   .log();
                     }
 
                     @Override
                     public void afterBulk(
                             long executionId,
                             BulkRequest request,
-                            BulkResponse response
-                    ) {
+                            BulkResponse response) {
                         if (response.hasFailures()) {
                             BulkItemResponse[] items = response.getItems();
                             for (BulkItemResponse item : items) {
                                 if (item.isFailed()) {
                                     elasticSearchLog("Indexing failure")
-                                            .addParameter("uri", item.getFailure().getId())
+                                            .addParameter("uri",
+                                                          item.getFailure()
+                                                              .getId())
                                             .addParameter("detailMessage", item.getFailureMessage())
                                             .log();
                                 }
@@ -395,18 +439,17 @@ public class Indexer {
                     public void afterBulk(
                             long executionId,
                             BulkRequest request,
-                            Throwable failure
-                    ) {
+                            Throwable failure) {
                         elasticSearchLog("Bulk index failure")
                                 .addParameter("detailedMessagee", failure.getMessage())
                                 .log();
                         failure.printStackTrace();
                     }
                 })
-                .setBulkActions(10000)
-                .setBulkSize(new ByteSizeValue(100, ByteSizeUnit.MB))
-                .setConcurrentRequests(4)
-                .build();
+                                                   .setBulkActions(1000) // Reduced from 10,000  due to size of the content is now much larger.
+                                                   .setBulkSize(new ByteSizeValue(100, ByteSizeUnit.MB))
+                                                   .setConcurrentRequests(4)
+                                                   .build();
 
         return bulkProcessor;
     }

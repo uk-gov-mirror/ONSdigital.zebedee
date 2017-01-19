@@ -1,5 +1,6 @@
 package com.github.onsdigital.zebedee.content.page.staticpage;
 
+import com.github.onsdigital.zebedee.content.page.base.DownloadablePage;
 import com.github.onsdigital.zebedee.content.page.base.Page;
 import com.github.onsdigital.zebedee.content.page.base.PageType;
 import com.github.onsdigital.zebedee.content.page.statistics.dataset.DownloadSection;
@@ -14,7 +15,7 @@ import java.util.List;
 /**
  * Created by bren on 29/06/15.
  */
-public class StaticArticle extends Page {
+public class StaticArticle extends Page implements DownloadablePage {
 
     private List<Link> relatedData;
     private List<Link> relatedDocuments;

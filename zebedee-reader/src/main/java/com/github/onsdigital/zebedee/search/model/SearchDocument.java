@@ -2,8 +2,10 @@ package com.github.onsdigital.zebedee.search.model;
 
 import com.github.onsdigital.zebedee.content.page.base.PageDescription;
 import com.github.onsdigital.zebedee.content.page.base.PageType;
+import com.github.onsdigital.zebedee.content.page.statistics.dataset.DownloadSection;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -15,6 +17,11 @@ public class SearchDocument {
     private PageDescription description;
     private List<URI> topics;
     private List<String> searchBoost;
+    /**
+     * The document being index will contain link to downloadable PDFs
+     * and XLS we need to index these as part of the overall document
+     */
+    private List<DownloadSection> downloads = new ArrayList<>();
 
 
     public PageDescription getDescription() {
@@ -55,5 +62,13 @@ public class SearchDocument {
 
     public void setSearchBoost(List<String> searchBoost) {
         this.searchBoost = searchBoost;
+    }
+
+    public List<DownloadSection> getDownloads() {
+        return downloads;
+    }
+
+    public void setDownloads(final List<DownloadSection> downloads) {
+        this.downloads = downloads;
     }
 }

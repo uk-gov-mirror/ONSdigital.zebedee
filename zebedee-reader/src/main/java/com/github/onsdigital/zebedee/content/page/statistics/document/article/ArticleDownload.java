@@ -1,5 +1,6 @@
 package com.github.onsdigital.zebedee.content.page.statistics.document.article;
 
+import com.github.onsdigital.zebedee.content.page.base.DownloadablePage;
 import com.github.onsdigital.zebedee.content.page.base.PageType;
 import com.github.onsdigital.zebedee.content.page.statistics.base.Statistics;
 import com.github.onsdigital.zebedee.content.page.statistics.dataset.DownloadSection;
@@ -9,7 +10,7 @@ import com.github.onsdigital.zebedee.content.partial.Link;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ArticleDownload extends Statistics {
+public class ArticleDownload extends Statistics implements DownloadablePage {
 
     private List<DownloadSection> downloads;
     private List<String> markdown;

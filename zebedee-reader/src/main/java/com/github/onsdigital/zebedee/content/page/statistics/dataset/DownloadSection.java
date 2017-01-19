@@ -12,6 +12,10 @@ public class DownloadSection extends Content {
     private List<String> cdids;
     private String file;
     private String fileDescription; //Markdown
+    /**
+     * content of the download section in Character for (i.e. extracted from the original format into clear text)
+     */
+    private String content;
 
     public String getTitle() {
         return title;
@@ -43,5 +47,13 @@ public class DownloadSection extends Content {
 
     public void setFileDescription(String fileDescription) {
         this.fileDescription = fileDescription;
+    }
+
+    public void setContent(final String content) {
+        this.content = content;
+    }
+
+    public String getContent() {
+        return content;
     }
 }

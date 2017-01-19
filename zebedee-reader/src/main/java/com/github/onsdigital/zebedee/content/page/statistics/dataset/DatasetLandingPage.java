@@ -1,5 +1,6 @@
 package com.github.onsdigital.zebedee.content.page.statistics.dataset;
 
+import com.github.onsdigital.zebedee.content.page.base.DownloadablePage;
 import com.github.onsdigital.zebedee.content.page.base.PageType;
 import com.github.onsdigital.zebedee.content.page.statistics.base.Statistics;
 import com.github.onsdigital.zebedee.content.partial.Link;
@@ -10,7 +11,7 @@ import java.util.List;
 /**
  * Created by bren on 04/06/15.
  */
-public class DatasetLandingPage extends Statistics {
+public class DatasetLandingPage extends Statistics implements DownloadablePage {
 
     /*Body*/
     private List<DownloadSection> downloads;

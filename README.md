@@ -22,6 +22,7 @@ This was tested over a subset of the datasets (34K pages)
 ***
 
 Initial performance tuning was completed withing the scope  of the indexing API variables, BulkSize, BulkActions and Concurrent requests.
+
 | Shards | Concurrent Requests | Bulk Size | BulkActions | Start | End | Duration |
 | ------ | ------------------- | --------- | ----------- | ----- | --- | -------- |
 | 8 | 8 | 50MB | 100 | 8:51:52 | 9:02:00 | 0:10:08 |

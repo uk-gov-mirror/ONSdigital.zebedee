@@ -13,10 +13,10 @@ public class Document {
 
     public Document(String uri,  Set<List<String>> searchTerms) {
         this.uri = uri;
-        this.searchTerms = resovleSearchTerms(searchTerms);
+        this.searchTerms = resolveSearchTerms(searchTerms);
     }
 
-    private List<String> resovleSearchTerms(Set<List<String>> terms) {
+    private List<String> resolveSearchTerms(Set<List<String>> terms) {
         if (terms == null) {
             return null;
         }

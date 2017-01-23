@@ -124,10 +124,11 @@ public class FileSystemContentReader implements ContentReader {
         if (page instanceof DownloadablePage) {
             List<DownloadSection> downloads = ((DownloadablePage) page).getDownloads();
             if (null != downloads) {
-                downloads.forEach(section -> {
-                    String content = extractContent(page.getUri(), section.getFile());
-                    section.setContent(content);
-                });
+                downloads.parallelStream()
+                         .forEach(section -> {
+                             String content = extractContent(page.getUri(), section.getFile());
+                             section.setContent(content);
+                         });
             }
 
         }
@@ -143,18 +144,15 @@ public class FileSystemContentReader implements ContentReader {
             downloadPath = resolveDownloadPath(pageURI, filePath);
 
             if (null != downloadPath) {
-                String detect = tikaParser.detect(downloadPath);
-                LOGGER.info("getContent([path]) : type {} found for file {}", detect, downloadPath);
                 content = tikaParser.parseToString(downloadPath);
-
             }
             else {
-                LOGGER.error("getContent([path]) : file {} can not be found and can not be loaded");
+                LOGGER.error("extractContent([pageURI, filePath]) : file {} can not be found and can not be loaded");
             }
 
         }
         catch (Exception e) {
-            LOGGER.error("getContent([path]) : failed to parser file '{}' with error {} for page {}",
+            LOGGER.error("extractContent([pageURI, filePath]) : failed to parser file '{}' with error {} for page {}",
                          downloadPath,
                          e.getMessage(),
                          pageURI);

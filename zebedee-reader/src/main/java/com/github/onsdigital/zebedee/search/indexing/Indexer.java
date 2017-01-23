@@ -11,6 +11,7 @@ import com.github.onsdigital.zebedee.reader.ZebedeeReader;
 import com.github.onsdigital.zebedee.search.client.ElasticSearchClient;
 import com.github.onsdigital.zebedee.search.model.SearchDocument;
 import com.github.onsdigital.zebedee.util.URIUtils;
+import com.google.common.collect.Lists;
 import org.apache.commons.io.IOUtils;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkProcessor;
@@ -47,6 +48,9 @@ public class Indexer {
     private final static String DEPARTMENTS_INDEX = "departments";
     private final static String DEPARTMENT_TYPE = "departments";
     private final static String DEPARTMENTS_PATH = "/search/departments/departments.txt";
+    public static final int BULK_ACTIONS = 1000;
+    public static final ByteSizeValue BULK_SIZE = new ByteSizeValue(500, ByteSizeUnit.MB);
+    public static final int CONCURRENT_REQUESTS = 8;
     private static Indexer instance = new Indexer();
     private final Lock LOCK = new ReentrantLock();
     private final Client client = ElasticSearchClient.getClient();
@@ -271,20 +275,28 @@ public class Indexer {
      * @throws IOException
      */
     private void index(String indexName, List<Document> documents) throws IOException {
-        try (BulkProcessor bulkProcessor = getBulkProcessor()) {
-            for (Document document : documents) {
-                try {
-                    IndexRequestBuilder indexRequestBuilder = prepareIndexRequest(indexName, document);
-                    if (indexRequestBuilder == null) {
-                        continue;
-                    }
-                    bulkProcessor.add(indexRequestBuilder.request());
-                }
-                catch (Exception e) {
-                    System.err.println("!!!!!!!!!Failed preparing index for " + document.getUri() + " skipping...");
-                    e.printStackTrace();
-                }
+        //Break the documents in to 8 partitions for indexing
+        Lists.partition(documents, BULK_ACTIONS)
+             .parallelStream()
+             .forEach(partitionedDocuments -> {
+                          try (BulkProcessor bulkProcessor = getBulkProcessor()) {
+                              partitionedDocuments.forEach(document -> indexDocument(indexName, bulkProcessor, document));
+                          }
+                      }
+                     );
+    }
+
+    private void indexDocument(final String indexName, final BulkProcessor bulkProcessor, final Document document) {
+        try {
+            IndexRequestBuilder indexRequestBuilder = prepareIndexRequest(indexName, document);
+            if (indexRequestBuilder == null) {
+                return;
             }
+            bulkProcessor.add(indexRequestBuilder.request());
+        }
+        catch (Exception e) {
+            System.err.println("!!!!!!!!!Failed preparing index for " + document.getUri() + " skipping...");
+            e.printStackTrace();
         }
     }
 
@@ -446,9 +458,9 @@ public class Indexer {
                         failure.printStackTrace();
                     }
                 })
-                                                   .setBulkActions(1000) // Reduced from 10,000  due to size of the content is now much larger.
-                                                   .setBulkSize(new ByteSizeValue(100, ByteSizeUnit.MB))
-                                                   .setConcurrentRequests(4)
+                                                   .setBulkActions(BULK_ACTIONS) // Reduced from 10,000  due to size of the content is now much larger.
+                                                   .setBulkSize(BULK_SIZE)
+                                                   .setConcurrentRequests(CONCURRENT_REQUESTS)
                                                    .build();
 
         return bulkProcessor;

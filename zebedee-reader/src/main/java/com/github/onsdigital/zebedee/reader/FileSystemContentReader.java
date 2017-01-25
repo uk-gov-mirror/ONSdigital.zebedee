@@ -14,12 +14,12 @@ import com.github.onsdigital.zebedee.exceptions.BadRequestException;
 import com.github.onsdigital.zebedee.exceptions.NotFoundException;
 import com.github.onsdigital.zebedee.exceptions.ZebedeeException;
 import com.github.onsdigital.zebedee.reader.data.language.ContentLanguage;
+import com.github.onsdigital.zebedee.reader.util.FileContentExtractUtil;
 import com.github.onsdigital.zebedee.reader.util.ReleaseDateComparator;
 import com.github.onsdigital.zebedee.util.PathUtils;
 import com.github.onsdigital.zebedee.util.URIUtils;
 import com.google.gson.JsonSyntaxException;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.tika.Tika;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,7 +49,7 @@ import static org.apache.commons.lang3.StringUtils.removeEnd;
 public class FileSystemContentReader implements ContentReader {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FileSystemContentReader.class);
-    private final Tika tikaParser = new Tika();
+
     private final Path ROOT_FOLDER;
     private ContentLanguage language = ContentLanguage.en;
 
@@ -62,8 +62,7 @@ public class FileSystemContentReader implements ContentReader {
         if (rootFolder == null) {
             throw new NullPointerException("Root folder can not be null");
         }
-        //Configure Tika to convert as much as possible the clear text
-        tikaParser.setMaxStringLength(Integer.MAX_VALUE);
+
         this.ROOT_FOLDER = rootFolder;
     }
 
@@ -101,7 +100,7 @@ public class FileSystemContentReader implements ContentReader {
     public Page getContent(String path) throws ZebedeeException, IOException {
         //Resolve to see if requested content is latest content, if so return latest, otherwise requested file
         Path contentPath = resolveContentPath(path);
-        if (isRootFolder(contentPath) == false) {
+        if (!isRootFolder(contentPath)) {
             String parentPath = URIUtils.removeLastSegment(path);
             try {
                 Page latestContent = getLatestContent(parentPath);
@@ -110,6 +109,8 @@ public class FileSystemContentReader implements ContentReader {
                 }
             }
             catch (Exception e) {
+                //TODO remove exception thrown as a business flow control 'Don't Use Exceptions for Flow Control'
+
             }
         }
         final Page page = getPage(contentPath);
@@ -122,18 +123,25 @@ public class FileSystemContentReader implements ContentReader {
 
         //Extract the content from the download files
         if (page instanceof DownloadablePage) {
-            List<DownloadSection> downloads = ((DownloadablePage) page).getDownloads();
-            if (null != downloads) {
-                downloads.parallelStream()
-                         .forEach(section -> {
-                             String content = extractContent(page.getUri(), section.getFile());
-                             section.setContent(content);
-                         });
-            }
-
+            extractDownloadContent(page);
         }
-
         return page;
+    }
+
+    private void extractDownloadContent(final Page page) {
+        List<DownloadSection> downloads = ((DownloadablePage) page).getDownloads();
+        if (null != downloads) {
+            downloads.parallelStream()
+                     .filter(section -> null != section
+                             && null != section.getFile())
+                     .forEach(section -> {
+                         String content = extractContent(page.getUri(), section.getFile());
+                         section.setContent(content);
+                     });
+            LOGGER.info("extractDownloadContent([page]) : loaded {} download files for {}",
+                        downloads.size(),
+                        page.getUri());
+        }
     }
 
     private String extractContent(final URI pageURI, final String filePath) {
@@ -142,22 +150,27 @@ public class FileSystemContentReader implements ContentReader {
         try {
 
             downloadPath = resolveDownloadPath(pageURI, filePath);
-
-            if (null != downloadPath) {
-                content = tikaParser.parseToString(downloadPath);
-            }
-            else {
-                LOGGER.error("extractContent([pageURI, filePath]) : file {} can not be found and can not be loaded");
-            }
+            content = extractText(downloadPath);
 
         }
-        catch (Exception e) {
+        catch (BadRequestException e) {
             LOGGER.error("extractContent([pageURI, filePath]) : failed to parser file '{}' with error {} for page {}",
-                         downloadPath,
+                         filePath,
                          e.getMessage(),
                          pageURI);
         }
         return content;
+    }
+
+    /**
+     * Use tika to extract File contents
+     *
+     * @param downloadPath
+     * @return
+     */
+
+    private String extractText(final Path downloadPath) {
+        return FileContentExtractUtil.extractText(downloadPath);
     }
 
     /**
@@ -170,19 +183,23 @@ public class FileSystemContentReader implements ContentReader {
      */
     private Path resolveDownloadPath(final URI pageURI, final String filePath) throws BadRequestException {
 
-        String webSitePath = new File(new File(pageURI.getPath()), filePath).getPath();
-        Path isDownloadPath = resolvePath(webSitePath);
 
+        Path isDownloadPath = null;
+
+        if (null != pageURI) {
+            String webSitePath = new File(new File(pageURI.getPath()), filePath).getPath();
+            isDownloadPath = resolvePath(webSitePath);
+        }
         //Check that the path supplied is valid, some of section paths include the path and some do not.
-        if (!isDownloadPath.toFile()
-                           .exists()) {
-            LOGGER.info("getContent([path]) : path '{}' is not valid, trying with out URI!",
-                        webSitePath);
+        if (null == isDownloadPath
+                || !isDownloadPath.toFile()
+                                  .exists()) {
+
             isDownloadPath = resolvePath(filePath);
+
             if (!isDownloadPath.toFile()
                                .exists()) {
-
-                LOGGER.info("getContent([path]) : not for file {}", isDownloadPath);
+                LOGGER.info("resolveDownloadPath([path]) : not a file {}", isDownloadPath);
                 isDownloadPath = null;
 
             }
@@ -202,15 +219,19 @@ public class FileSystemContentReader implements ContentReader {
     }
 
     private Page getPage(Path dataFile) throws IOException, ZebedeeException {
+
         try (Resource resource = getResource(dataFile)) {
-//            checkJsonMime(resource, path);
+
             Page page = deserialize(resource);
-            if (page == null) { //Contents without type is null when deserialised. There should not be no such data
+
+            if (null == page) { //Contents without type is null when deserialised. There should not be no such data
                 return null;
             }
             String uri = resource.getUri()
                                  .toString();
             page.setUri(resolveUri(uri, page));
+            String pageData = extractText(dataFile);
+            page.setPageData(pageData);
             PageDescription description = page.getDescription();
 
             return page;
@@ -292,10 +313,12 @@ public class FileSystemContentReader implements ContentReader {
     }
 
     @Override
-    public DirectoryStream<Path> getDirectoryStream(String path,
-                                                    String filter) throws BadRequestException, IOException {
+    public DirectoryStream<Path> getDirectoryStream(String path, String filter)
+            throws BadRequestException, IOException {
+
         Path node = resolvePath(path);
         return newDirectoryStream(node, filter);
+
     }
 
     /**
@@ -361,9 +384,6 @@ public class FileSystemContentReader implements ContentReader {
                     }
                     nodes.put(contentNode.getUri(), contentNode);
                 }
-                else {
-                    continue;//skip all other files in current directory
-                }
             }
         }
         return nodes;
@@ -376,15 +396,15 @@ public class FileSystemContentReader implements ContentReader {
             return null;
         }
 
-        TreeSet<ContentNode> sortedSet = sortByDate(children.values());
+        Set<ContentNode> sortedSet = sortByDate(children.values());
         return getPage(resolveDataFilePath(resolvePath(sortedSet.iterator()
                                                                 .next()
                                                                 .getUri()
                                                                 .toString())));
     }
 
-    private TreeSet sortByDate(Collection set) {
-        TreeSet valueSet = new TreeSet(new ReleaseDateComparator());
+    private Set<ContentNode> sortByDate(Collection<ContentNode> set) {
+        Set<ContentNode> valueSet = new TreeSet<>(new ReleaseDateComparator());
         valueSet.addAll(set);
         return valueSet;
     }
@@ -424,6 +444,7 @@ public class FileSystemContentReader implements ContentReader {
     }
 
     private void assertExists(Path path) throws ZebedeeException, IOException {
+        //TODO remove exception thrown as a business flow control 'Don't Use Exceptions for Flow Control'
         if (!exists(path) || !isChild(path)) {
             throw new NotFoundException("Could not find requested content, path:" + path.toUri()
                                                                                         .toString());
@@ -455,20 +476,25 @@ public class FileSystemContentReader implements ContentReader {
     }
 
     private void assertIsEditionsFolder(Path path) throws ZebedeeException, IOException {
+
         assertExists(path);
         assertIsDirectory(path);
         String fileName = path.getFileName()
                               .toString();
         if (getConfiguration().getBulletinsFolderName()
-                              .equals(fileName) || getConfiguration().getArticlesFolderName()
-                                                                     .equals(fileName) || getConfiguration().getCompendiumFolderName()
-                                                                                                            .equals(fileName)) {
+                              .equals(fileName)
+                || getConfiguration().getArticlesFolderName()
+                                     .equals(fileName)
+                || getConfiguration().getCompendiumFolderName()
+                                     .equals(fileName)) {
             return;
         }
+        //TODO remove exception thrown as a business flow control 'Don't Use Exceptions for Flow Control'
         throw new BadRequestException("Latest uri can not be resolved for this content type");
     }
 
     private Path resolvePath(String path) throws BadRequestException {
+        //TODO remove exception thrown as a business flow control 'Don't Use Exceptions for Flow Control'
         if (path == null) {
             throw new NullPointerException("Path can not be null");
         }
@@ -489,7 +515,7 @@ public class FileSystemContentReader implements ContentReader {
         if (!exists(dataFilePath)) {
             dataFilePath = path.resolve(ContentLanguage.en.getDataFileName());
         }
-        assertReleative(dataFilePath);
+        assertRelative(dataFilePath);
         return dataFilePath;
     }
 
@@ -498,7 +524,7 @@ public class FileSystemContentReader implements ContentReader {
      *
      * @param dataFilePath
      */
-    private void assertReleative(Path dataFilePath) {
+    private void assertRelative(Path dataFilePath) {
         dataFilePath.normalize();
 
     }
@@ -515,12 +541,12 @@ public class FileSystemContentReader implements ContentReader {
         ContentNode contentNode = null;
         try {
             Page content = getContent(path);
-            if (content != null) {
+            if (null != content) {
                 contentNode = new ContentNode();
                 contentNode.setUri(content.getUri());
                 contentNode.setType(content.getType());
                 PageDescription description = content.getDescription();
-                if (description != null) {
+                if (null != description) {
                     contentNode.setDescription(new ContentNodeDetails(description.getTitle(),
                                                                       description.getEdition()));
                     contentNode.getDescription()
@@ -569,11 +595,12 @@ public class FileSystemContentReader implements ContentReader {
                 @Override
                 public FileVisitResult visitFile(
                         Path file,
-                        BasicFileAttributes attrs
-                                                )
+                        BasicFileAttributes attrs)
                         throws IOException {
+
                     uris.add(PathUtils.toRelativeUri(root, file)
                                       .toString());
+
                     return FileVisitResult.CONTINUE;
                 }
             });

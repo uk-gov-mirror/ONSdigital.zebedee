@@ -13,16 +13,14 @@ import com.github.onsdigital.zebedee.search.model.SearchDocument;
 import com.github.onsdigital.zebedee.util.URIUtils;
 import com.google.common.collect.Lists;
 import org.apache.commons.io.IOUtils;
-import org.elasticsearch.action.bulk.BulkItemResponse;
-import org.elasticsearch.action.bulk.BulkProcessor;
-import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.bulk.*;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeUnit;
 import org.elasticsearch.common.unit.ByteSizeValue;
+import org.elasticsearch.common.unit.TimeValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,6 +32,7 @@ import java.net.URI;
 import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -44,18 +43,19 @@ import static org.apache.commons.lang3.StringUtils.isEmpty;
 import static org.apache.commons.lang3.StringUtils.startsWith;
 
 public class Indexer {
+    public static final int BULK_ACTIONS = 500;
+    public static final ByteSizeValue BULK_SIZE = new ByteSizeValue(500, ByteSizeUnit.MB);
+    public static final int CONCURRENT_REQUESTS = 10;
     private static final Logger LOGGER = LoggerFactory.getLogger(Indexer.class);
     private final static String DEPARTMENTS_INDEX = "departments";
     private final static String DEPARTMENT_TYPE = "departments";
     private final static String DEPARTMENTS_PATH = "/search/departments/departments.txt";
-    public static final int BULK_ACTIONS = 1000;
-    public static final ByteSizeValue BULK_SIZE = new ByteSizeValue(500, ByteSizeUnit.MB);
-    public static final int CONCURRENT_REQUESTS = 8;
     private static Indexer instance = new Indexer();
     private final Lock LOCK = new ReentrantLock();
     private final Client client = ElasticSearchClient.getClient();
     private ElasticSearchUtils searchUtils = new ElasticSearchUtils(client);
     private ZebedeeReader zebedeeReader = new ZebedeeReader();
+
 
     private Indexer() {
     }
@@ -174,7 +174,7 @@ public class Indexer {
             return;
         }
         String[] terms = split[3].split(" *, *");
-        if (terms == null || terms.length == 0) {
+        if (null == terms || terms.length == 0) {
             return;
         }
 
@@ -212,7 +212,7 @@ public class Indexer {
                     .log();
         }
         catch (ZebedeeException e) {
-            throw new IndexingException("Failed re-indexint content with uri: " + uri, e);
+            throw new IndexingException("Failed re-indexing content with uri: " + uri, e);
         }
         catch (NoSuchFileException e) {
             throw new IndexingException("Content not found for re-indexing, uri: " + uri);
@@ -276,26 +276,70 @@ public class Indexer {
      */
     private void index(String indexName, List<Document> documents) throws IOException {
         //Break the documents in to 8 partitions for indexing
-        Lists.partition(documents, BULK_ACTIONS)
-             .parallelStream()
-             .forEach(partitionedDocuments -> {
-                          try (BulkProcessor bulkProcessor = getBulkProcessor()) {
-                              partitionedDocuments.forEach(document -> indexDocument(indexName, bulkProcessor, document));
+        final AtomicLong counter = new AtomicLong();
+        List<List<Document>> partition = Lists.partition(documents, BULK_ACTIONS);
+        LOGGER.info("index([indexName, documents]) : index {} found {} documents found and split into {} partitions {}",
+                    indexName,
+                    documents.size(),
+                    partition.size());
+
+        partition.parallelStream()
+                 .forEach(partitionedDocuments -> {
+                              long partitionCounter = counter.incrementAndGet();
+                              LOGGER.info("index([indexName, documents]) : partitioned documents #{} index request initiated",
+                                          partitionCounter);
+                              indexPartition(indexName, partitionedDocuments, partitionCounter);
+                              LOGGER.info("index([indexName, documents]) : partitioned documents #{} index request complete",
+                                          partitionCounter);
+
                           }
-                      }
-                     );
+                         );
+
     }
 
-    private void indexDocument(final String indexName, final BulkProcessor bulkProcessor, final Document document) {
+    private void indexPartition(final String indexName,
+                                final List<Document> partitionedDocuments,
+                                final long partitionCounter) {
+        final AtomicLong partitionDocCounter = new AtomicLong();
+        try (BulkProcessor bulkProcessor = getBulkProcessor()) {
+
+            partitionedDocuments.forEach(document -> indexDocument(indexName,
+                                                               bulkProcessor,
+                                                               document,
+                                                               partitionCounter,
+                                                               partitionDocCounter.incrementAndGet()));
+        }
+        catch (RuntimeException re) {
+            LOGGER.error("index([indexName, documents]) : partition {} failed with Exception {}",
+                         partitionCounter,
+                         re.getMessage(),
+                         re);
+            throw re;
+        }
+    }
+
+    private void indexDocument(final String indexName, final BulkProcessor bulkProcessor, final Document document,
+                               final long partitionNumber, final long counter) {
         try {
-            IndexRequestBuilder indexRequestBuilder = prepareIndexRequest(indexName, document);
+
+
+            IndexRequestBuilder indexRequestBuilder = prepareIndexRequest(indexName, document, partitionNumber);
+
             if (indexRequestBuilder == null) {
+                LOGGER.info(
+                        "indexDocument([indexName, bulkProcessor, document, partitionNumber[{}], doc[]{}]) : null IndexBuilder ",
+                        partitionNumber,
+                        counter);
                 return;
             }
+
             bulkProcessor.add(indexRequestBuilder.request());
+
         }
         catch (Exception e) {
-            System.err.println("!!!!!!!!!Failed preparing index for " + document.getUri() + " skipping...");
+            String msg = "!!!!!!!!!Failed preparing index for " + document.getUri() + " skipping...";
+            LOGGER.error("indexDocument([indexName, bulkProcessor, document]) : {} -> {}", msg, e.getMessage(), e);
+            System.err.println(msg);
             e.printStackTrace();
         }
     }
@@ -304,8 +348,9 @@ public class Indexer {
         return zebedeeReader.getPublishedContent(uri);
     }
 
-    private IndexRequestBuilder prepareIndexRequest(String indexName,
-                                                    Document document) throws ZebedeeException, IOException {
+    private IndexRequestBuilder prepareIndexRequest(final String indexName,
+                                                    final Document document,
+                                                    final long partitionNumber) throws ZebedeeException, IOException {
         Page page = getPage(document.getUri());
         if (page != null && page.getType() != null) {
             IndexRequestBuilder indexRequestBuilder = searchUtils.prepareIndex(indexName,
@@ -315,6 +360,15 @@ public class Indexer {
                                                                                    .toString());
             indexRequestBuilder.setSource(serialise(toSearchDocument(page, document.getSearchTerms())));
             return indexRequestBuilder;
+        }
+        else {
+            LOGGER.error(
+                    "prepareIndexRequest([indexName, document, partitionNumber]) : FAILED Page '{}' and Type '{}'partitionNumber {} URI {} ",
+                    page,
+                    (null != page ? page.getType()
+                                        .name() : "null"),
+                    partitionNumber,
+                    document.getUri());
         }
         return null;
     }
@@ -338,6 +392,7 @@ public class Indexer {
             DownloadablePage articleDownload = (DownloadablePage) page;
             indexDocument.setDownloads(articleDownload.getDownloads());
         }
+        indexDocument.setPageData(page.getPageData());
         indexDocument.setUri(page.getUri());
         indexDocument.setDescription(page.getDescription());
         indexDocument.setTopics(getTopics(page.getTopics()));
@@ -453,7 +508,7 @@ public class Indexer {
                             BulkRequest request,
                             Throwable failure) {
                         elasticSearchLog("Bulk index failure")
-                                .addParameter("detailedMessagee", failure.getMessage())
+                                .addParameter("detailedMessage", failure.getMessage())
                                 .log();
                         failure.printStackTrace();
                     }
@@ -461,6 +516,8 @@ public class Indexer {
                                                    .setBulkActions(BULK_ACTIONS) // Reduced from 10,000  due to size of the content is now much larger.
                                                    .setBulkSize(BULK_SIZE)
                                                    .setConcurrentRequests(CONCURRENT_REQUESTS)
+                                                   .setBackoffPolicy(BackoffPolicy.exponentialBackoff(
+                                                           TimeValue.timeValueMinutes(1), 60))
                                                    .build();
 
         return bulkProcessor;

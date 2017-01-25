@@ -1,6 +1,8 @@
 {
   "_default_": {
-    "_all": {"enabled": false},
+    "_all": {
+      "enabled": false
+    },
     "dynamic_date_formats": [
       "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
     ],
@@ -22,19 +24,18 @@
             "type": "string",
             "analyzer": "ons_synonym_stem",
             "search_analyzer": "ons_stem",
-
             "fields": {
               "title_raw": {
                 "type": "string"
               },
-              "title_no_stem" : {
-                "type" : "string",
-                "analyzer" : "ons_synonym",
-                "search_analyzer" : "ons_standard"
+              "title_no_stem": {
+                "type": "string",
+                "analyzer": "ons_synonym",
+                "search_analyzer": "ons_standard"
               },
-              "title_no_synonym_no_stem" : {
-                "type" : "string",
-                "analyzer" : "ons_standard"
+              "title_no_synonym_no_stem": {
+                "type": "string",
+                "analyzer": "ons_standard"
               },
               "title_no_dates": {
                 "type": "string",
@@ -75,21 +76,27 @@
           }
         }
       },
-      "downloads" : {
-        "properties" : {
-          "content" : {
+      "pageData": {
+        "type": "string",
+        "term_vector": "with_positions_offsets",
+        "analyzer": "ons_alphanumeric_synonyms_snowball",
+        "search_analyzer": "ons_alphanumeric_snowball"
+      },
+      "downloads": {
+        "properties": {
+          "content": {
             "type": "string",
-            "analyzer": "ons_synonym_stem_clear_dates",
-            "search_analyzer": "ons_stem_clear_dates",
+            "analyzer": "ons_alphanumeric_synonyms_snowball",
+            "search_analyzer": "ons_alphanumeric_snowball",
             "term_vector": "with_positions_offsets"
           },
-          "file" : {
-            "type" : "string"
+          "file": {
+            "type": "string"
           },
-          "title" : {
+          "title": {
             "type": "string",
-            "analyzer": "ons_synonym_stem_clear_dates",
-            "search_analyzer": "ons_stem_clear_dates",
+            "analyzer": "ons_alphanumeric_synonyms_snowball",
+            "search_analyzer": "ons_alphanumeric_snowball",
             "term_vector": "with_positions_offsets"
           }
         }
@@ -104,16 +111,16 @@
       }
     }
   },
-  "timeseries" : {
-    "properties" : {
-      "description" : {
-        "properties" : {
+  "timeseries": {
+    "properties": {
+      "description": {
+        "properties": {
           "title": {
             "norms": {
               "enabled": false
             },
             "fields": {
-              "title_no_stem" : {
+              "title_no_stem": {
                 "norms": {
                   "enabled": false
                 }

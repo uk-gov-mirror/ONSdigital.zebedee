@@ -87,6 +87,8 @@ public class ElasticSearchClient {
 
     protected static void initTransportClient() throws IOException {
         Settings.Builder builder = Settings.builder();
+        //Ensure that timeouts are lax
+        builder.put("client.transport.ping_timeout","60s");
 
         if (!StringUtils.isBlank(getElasticSearchCluster()))
             builder.put("cluster.name", getElasticSearchCluster());
@@ -141,7 +143,7 @@ public class ElasticSearchClient {
                 try {
                     Files.deleteIfExists(searchHome);
                 } catch (IOException e) {
-                    System.err.println("Falied cleaning temporary search client directory");
+                    System.err.println("Failed cleaning temporary search client directory");
                     e.printStackTrace();
                 }
             }

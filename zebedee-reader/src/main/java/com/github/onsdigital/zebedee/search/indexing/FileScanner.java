@@ -23,7 +23,7 @@ import static org.apache.commons.lang3.StringUtils.isEmpty;
  */
 public class FileScanner {
 
-
+    private static final Logger LOGGER = LoggerFactory.getLogger(FileScanner.class);
     private Path root;
 
     public FileScanner() {
@@ -46,15 +46,21 @@ public class FileScanner {
 
     public List<Document> scan(String path) throws IOException {
         Path dir = root;
-        List<Document> documents = new LinkedList<>();
-        if (isEmpty(path) == false) {
+        final List<Document> documents = new LinkedList<>();
+        if (!isEmpty(path)) {
             dir = root.resolve(URIUtils.removeLeadingSlash(path));
         }
 
 
         Scanner scanner = new Scanner(dir, null, root);
         List<ForkJoinTask<Document>> fork = scanner.getDocumentBuilders();
-        fork.forEach(db -> documents.add(db.join()));
+
+        fork.forEach(db -> {
+            Document builtDoc = db.join();
+            documents.add(builtDoc);
+            LOGGER.info("scan([path]) : Document {} built", builtDoc.getUri());
+        });
+
         return documents;
     }
 
@@ -130,8 +136,9 @@ public class FileScanner {
             addSubDocumentBuilders(subTermsForPrefix, subTasks, path);
         }
 
-        private void createDocument(final Set<List<String>> searchTerms, final List<ForkJoinTask<Document>> subTasks,
+        private void    createDocument(final Set<List<String>> searchTerms, final List<ForkJoinTask<Document>> subTasks,
                                     final Path path, final String uri) {
+            LOGGER.info("createDocument([searchTerms, subTasks, path, uri]) : creatingDocument for {} uri");
             String fullPath = toUri(path);
             if (isDataFile(fullPath)) {
                 List<String> terms = getSearchTermResolver().getTerms(uri);

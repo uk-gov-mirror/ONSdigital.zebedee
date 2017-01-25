@@ -9,7 +9,7 @@ import java.util.List;
 /**
  * Created by bren on 10/06/15.
  * <p>
- * This is the generic content object that that has common properties of all page types on the website
+ * This is the generic pageData object that that has common properties of all page types on the website
  */
 public abstract class Page extends Content {
 
@@ -20,9 +20,22 @@ public abstract class Page extends Content {
     private PageDescription description;
 
     private List<Link> topics;
+    
+    /**
+     * Contains the raw text from the data.json file.
+     */
+    private String pageData;
 
     public Page() {
         this.type = getType();
+    }
+
+    public String getPageData() {
+        return pageData;
+    }
+
+    public void setPageData(final String pageData) {
+        this.pageData = pageData;
     }
 
     public abstract PageType getType();

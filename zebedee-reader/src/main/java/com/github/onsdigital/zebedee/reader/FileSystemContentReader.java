@@ -129,24 +129,21 @@ public class FileSystemContentReader implements ContentReader {
     }
 
     private void extractDownloadContent(final Page page) {
-        List<DownloadSection> downloads = ((DownloadablePage) page).getDownloads();
+        List<DownloadSection> downloads = ((DownloadablePage)page).getDownloads();
         if (null != downloads) {
             downloads.parallelStream()
                      .filter(section -> null != section
                              && null != section.getFile())
                      .forEach(section -> {
-                         String content = extractContent(page.getUri(), section.getFile());
+                         List<String> content = extractContent(page.getUri(), section.getFile());
                          section.setContent(content);
                      });
-            LOGGER.info("extractDownloadContent([page]) : loaded {} download files for {}",
-                        downloads.size(),
-                        page.getUri());
         }
     }
 
-    private String extractContent(final URI pageURI, final String filePath) {
+    private List<String> extractContent(final URI pageURI, final String filePath) {
         Path downloadPath = null;
-        String content = null;
+        List<String> content = null;
         try {
 
             downloadPath = resolveDownloadPath(pageURI, filePath);
@@ -169,7 +166,7 @@ public class FileSystemContentReader implements ContentReader {
      * @return
      */
 
-    private String extractText(final Path downloadPath) {
+    private List<String> extractText(final Path downloadPath) {
         return FileContentExtractUtil.extractText(downloadPath);
     }
 
@@ -230,7 +227,7 @@ public class FileSystemContentReader implements ContentReader {
             String uri = resource.getUri()
                                  .toString();
             page.setUri(resolveUri(uri, page));
-            String pageData = extractText(dataFile);
+            List<String> pageData = extractText(dataFile);
             page.setPageData(pageData);
             PageDescription description = page.getDescription();
 

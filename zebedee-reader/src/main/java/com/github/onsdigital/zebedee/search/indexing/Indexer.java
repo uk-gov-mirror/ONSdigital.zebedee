@@ -43,7 +43,7 @@ import static org.apache.commons.lang3.StringUtils.isEmpty;
 import static org.apache.commons.lang3.StringUtils.startsWith;
 
 public class Indexer {
-    public static final int BULK_ACTIONS = 500;
+    public static final int BULK_ACTIONS = 1000;
     public static final ByteSizeValue BULK_SIZE = new ByteSizeValue(500, ByteSizeUnit.MB);
     public static final int CONCURRENT_REQUESTS = 10;
     private static final Logger LOGGER = LoggerFactory.getLogger(Indexer.class);

@@ -58,7 +58,7 @@ public class FileScanner {
         fork.forEach(db -> {
             Document builtDoc = db.join();
             documents.add(builtDoc);
-            LOGGER.info("scan([path]) : Document {} built", builtDoc.getUri());
+
         });
 
         return documents;
@@ -136,7 +136,7 @@ public class FileScanner {
             addSubDocumentBuilders(subTermsForPrefix, subTasks, path);
         }
 
-        private void    createDocument(final Set<List<String>> searchTerms, final List<ForkJoinTask<Document>> subTasks,
+        private void createDocument(final Set<List<String>> searchTerms, final List<ForkJoinTask<Document>> subTasks,
                                     final Path path, final String uri) {
             LOGGER.info("createDocument([searchTerms, subTasks, path, uri]) : creatingDocument for {} uri");
             String fullPath = toUri(path);

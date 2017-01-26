@@ -15,7 +15,7 @@ public class DownloadSection extends Content {
     /**
      * content of the download section in Character for (i.e. extracted from the original format into clear text)
      */
-    private String content;
+    private List<String> content;
 
     public String getTitle() {
         return title;
@@ -49,11 +49,11 @@ public class DownloadSection extends Content {
         this.fileDescription = fileDescription;
     }
 
-    public void setContent(final String content) {
+    public void setContent(final List<String> content) {
         this.content = content;
     }
 
-    public String getContent() {
+    public List<String> getContent() {
         return content;
     }
 }

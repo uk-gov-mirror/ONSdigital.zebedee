@@ -33,12 +33,7 @@ public class PathUtilsTest {
         assertNotNull(PathUtils.readFileToString(Paths.get("src/test/resources/blah.json")));
     }
 
-    @Test
-    public void testIsJSONTrue() throws Exception {
-        assertTrue(PathUtils.isJsonFile(Paths.get("src/test/resources/countries.JSON")));
-    }
-
-    @Test
+     @Test
     public void testIsJsonCsvFileTrue() throws Exception {
         assertFalse(PathUtils.isJsonFile(Paths.get("src/test/resources/testData.csv")));
 

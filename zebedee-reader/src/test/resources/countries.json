@@ -1,0 +1,108 @@
+{
+  "continents": {
+    "EU": {
+      "name": "Europe",
+      "countries": [
+        {
+          "AD": {
+            "name": "Andorra",
+            "native": "Andorra",
+            "phone": "376",
+            "continent": "EU",
+            "capital": "Andorra la Vella",
+            "currency": "EUR",
+            "languages": "ca"
+          }
+        },
+        {
+          "AT": {
+            "name": "Austria",
+            "native": "Österreich",
+            "phone": "43",
+            "continent": "EU",
+            "capital": "Vienna",
+            "currency": "EUR",
+            "languages": "de"
+          }
+        },
+        {
+          "BE": {
+            "name": "Belgium",
+            "native": "België",
+            "phone": "32",
+            "continent": "EU",
+            "capital": "Brussels",
+            "currency": "EUR",
+            "languages": "nl,fr,de"
+          }
+        },
+        {
+          "BL": {
+            "name": "Saint Barthélemy",
+            "native": "Saint-Barthélemy",
+            "phone": "590",
+            "continent": "NA",
+            "capital": "Gustavia",
+            "currency": "EUR",
+            "languages": "fr"
+          }
+        },
+        {
+          "BY": {
+            "name": "Belarus",
+            "native": "Белару́сь",
+            "phone": "375",
+            "continent": "EU",
+            "capital": "Minsk",
+            "currency": "BYR",
+            "languages": "be,ru"
+          }
+        },
+        {
+          "CH": {
+            "name": "Switzerland",
+            "native": "Schweiz",
+            "phone": "41",
+            "continent": "EU",
+            "capital": "Bern",
+            "currency": "CHE,CHF,CHW",
+            "languages": "de,fr,it"
+          }
+        },
+        {
+          "FR": {
+            "name": "France",
+            "native": "France",
+            "phone": "33",
+            "continent": "EU",
+            "capital": "Paris",
+            "currency": "EUR",
+            "languages": "fr"
+          }
+        },
+        {
+          "GB": {
+            "name": "United Kingdom",
+            "native": "United Kingdom",
+            "phone": "44",
+            "continent": "EU",
+            "capital": "London",
+            "currency": "GBP",
+            "languages": "en"
+          }
+        },
+        {
+          "GR": {
+            "name": "Greece",
+            "native": "Ελλάδα",
+            "phone": "30",
+            "continent": "EU",
+            "capital": "Athens",
+            "currency": "EUR",
+            "languages": "el"
+          }
+        }
+      ]
+    }
+  }
+}

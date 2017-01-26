@@ -24,17 +24,17 @@ public abstract class Page extends Content {
     /**
      * Contains the raw text from the data.json file.
      */
-    private String pageData;
+    private List<String> pageData;
 
     public Page() {
         this.type = getType();
     }
 
-    public String getPageData() {
+    public List<String> getPageData() {
         return pageData;
     }
 
-    public void setPageData(final String pageData) {
+    public void setPageData(final List<String> pageData) {
         this.pageData = pageData;
     }
 

@@ -8,6 +8,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.google.common.collect.Lists.newArrayList;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -118,9 +119,9 @@ public class FileContentExtractUtilTest {
         Path testDataFile = Paths.get("src/test/resources/testData.csv");
         assertTrue("File not available", testDataFile.toFile()
                                                      .exists());
-        String csvContent = FileContentExtractUtil.extractText(testDataFile);
+        List<String> csvContent = FileContentExtractUtil.extractText(testDataFile);
 
-        assertEquals("bamboo_shoots arugula avocado basil beets beans artichoke asparagus",
+        assertEquals(newArrayList("bamboo_shoots arugula avocado basil beets beans artichoke asparagus"),
                      csvContent);
     }
 
@@ -130,19 +131,19 @@ public class FileContentExtractUtilTest {
         Path testDataFile = Paths.get("src/test/resources/testData.txt");
         assertTrue("File not available", testDataFile.toFile()
                                                      .exists());
-        String txtContent = FileContentExtractUtil.extractText(testDataFile);
+        List<String> txtContent = FileContentExtractUtil.extractText(testDataFile);
 
         //Should be raw as it's a text file
-        assertEquals(
-                "artichoke,arugula     asparagus artichoke avocado      bamboo_shoots basil    artichoke beans beets\n",
-                txtContent);
+        assertEquals(newArrayList(
+                "artichoke,arugula     asparagus artichoke avocado      bamboo_shoots basil    artichoke beans beets\n"),
+                     txtContent);
     }
 
     @Test
     public void extractContentFromNonExistantFile() {
 
         Path testDataFile = Paths.get("blah!!");
-        String csvContent = FileContentExtractUtil.extractText(testDataFile);
+        List<String> csvContent = FileContentExtractUtil.extractText(testDataFile);
         assertNull(csvContent);
 
     }

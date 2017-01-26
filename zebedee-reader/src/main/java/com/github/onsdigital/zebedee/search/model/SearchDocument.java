@@ -22,7 +22,7 @@ public class SearchDocument {
      * and XLS we need to index these as part of the overall document
      */
     private List<DownloadSection> downloads = new ArrayList<>();
-    private String pageData;
+    private List<String> pageData;
 
 
     public PageDescription getDescription() {
@@ -73,11 +73,11 @@ public class SearchDocument {
         this.downloads = downloads;
     }
 
-    public String getPageData() {
+    public List<String> getPageData() {
         return pageData;
     }
 
-    public void setPageData(final String pageData) {
+    public void setPageData(final List<String> pageData) {
         this.pageData = pageData;
     }
 }

@@ -1,5 +1,7 @@
 package com.github.onsdigital.zebedee.reader.util;
 
+import com.beust.jcommander.internal.Lists;
+import com.github.onsdigital.zebedee.util.PathUtils;
 import org.apache.tika.config.TikaConfig;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.extractor.DocumentSelector;
@@ -33,7 +35,11 @@ import static com.github.onsdigital.zebedee.reader.analyse.TextFilterUtil.extrac
 public class FileContentExtractUtil {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FileContentExtractUtil.class);
-    public static final int LARGE_FILE = 1048576; //1MB
+
+
+    private FileContentExtractUtil() {
+        //DO NOT INSTANTIATE
+    }
 
 
     /**
@@ -44,25 +50,27 @@ public class FileContentExtractUtil {
      * @return String containing the text
      */
 
-    public static String extractText(final Path downloadPath) {
-        String contentText = null;
+    public static List<String> extractText(final Path downloadPath) {
+        List<String> contentText = null;
         try {
             if (null != downloadPath) {
-
-                ArrayList<Metadata> documentMetadatas = new ArrayList<>();
-                contentText = extractRawText(downloadPath, documentMetadatas);
-
-                if (isTabularContentType(documentMetadatas) || isTabularFileName(documentMetadatas)) {
-                    contentText = extractAlphaNumericCaseSensitiveUniqueTokens(contentText).stream()
-                                                                                           .collect(Collectors.joining(
-                                                                                                   " "));
+                //Tika does not handle json
+                if (PathUtils.isJsonFile(downloadPath)) {
+                    contentText = new JsonToStringConverter(PathUtils.readFileToString(downloadPath)).extractText();
                 }
-                else if (contentText.length() > LARGE_FILE) {
-                    LOGGER.info("extractText([downloadPath]) : Large Document {} characters {}",
-                                contentText.length(),
-                                downloadPath);
-                }
+                else {
+                    ArrayList<Metadata> documentMetadatas = new ArrayList<>();
 
+                    String str = extractRawText(downloadPath, documentMetadatas);
+
+                    if (isTabularContentType(documentMetadatas) || isTabularFileName(documentMetadatas)) {
+                        str = extractAlphaNumericCaseSensitiveUniqueTokens(str).stream()
+                                                                               .collect(
+                                                                                       Collectors.joining(
+                                                                                               " "));
+                    }
+                    contentText = Lists.newArrayList(str);
+                }
             }
             else {
                 LOGGER.error("extractContent([pageURI, filePath]) : file {} can not be found and can not be loaded");

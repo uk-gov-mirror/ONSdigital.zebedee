@@ -3,6 +3,7 @@
 source ./export-default-env-vars.sh
 
 export JAVA_OPTS="-Xdebug -Xrunjdwp:transport=dt_socket,address=8002,server=y,suspend=n"
+export JAVA_OPTS="-Xdebug -Xrunjdwp:transport=dt_socket,address=8002,server=y,suspend=n -Xms4g -Xmx4g"
 export PORT="8082"
 
 # Restolino configuration

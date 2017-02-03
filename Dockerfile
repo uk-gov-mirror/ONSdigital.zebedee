@@ -9,7 +9,7 @@ ADD ./zebedee-cms/target/classes /usr/src/target/classes
 EXPOSE 9200
 
 # Update the entry point script
-ENTRYPOINT java -Xmx2048m \
+ENTRYPOINT java -Xms4g -Xmx4g \
           -Ddb_audit_url=$db_audit_url \
           -Ddb_audit_username=$db_audit_username \
           -Ddb_audit_password=$db_audit_password \

@@ -9,7 +9,7 @@ ADD ./target/classes /usr/src/target/classes
 EXPOSE 9200
 
 # Update the entry point script
-ENTRYPOINT java -Xmx2048m \
+ENTRYPOINT java -Xms4g -Xmx4g \
           -Drestolino.classes=target/classes \
           -Drestolino.packageprefix=com.github.onsdigital.zebedee.reader.api \
           -cp "target/dependency/*:target/classes/" \

@@ -1,12 +1,8 @@
 package com.github.onsdigital.zebedee.reader.analyse;
 
 import com.google.common.collect.Sets;
-import org.apache.lucene.analysis.core.LowerCaseFilterFactory;
-import org.apache.lucene.analysis.pattern.PatternCaptureGroupFilterFactory;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -26,9 +22,9 @@ class AlphaNumLowerCaseFilter {
     private final static Set<String> DEFAULT_KEEP_TYPES = Sets.newHashSet("<ALPHANUM>");
 
     private static final TextAnalyser TEXT_ANALYSER = new TextAnalyser()
-            .addFilterFactory(buildAlphaNumFilter())
-            .addFilterFactory(buildPatternFilter())
-            .addFilterFactory(buildLowerCaseFilter());
+            .addFilterFactory(Filters.buildAlphaNumFilter())
+            .addFilterFactory(Filters.buildRegexFilter())
+            .addFilterFactory(Filters.buildLowerCaseFilter());
 
 
     /**
@@ -37,26 +33,9 @@ class AlphaNumLowerCaseFilter {
      * @throws IOException
      */
     public void filter(String text, Accumulator accumulator) throws IOException {
-
-
         TEXT_ANALYSER.analyse(text, accumulator);
-
     }
 
-    private static ONSTypeTokenFilterFactory buildAlphaNumFilter() {
-        return new ONSTypeTokenFilterFactory(DEFAULT_KEEP_TYPES, true);
-    }
-
-    private static LowerCaseFilterFactory buildLowerCaseFilter() {
-        return new LowerCaseFilterFactory(new HashMap<>());
-    }
-
-    private static PatternCaptureGroupFilterFactory buildPatternFilter() {
-        Map<String, String> patternArgs = new HashMap<>();
-        patternArgs.put("pattern", ALPHA_ALPHANUM_REGEX);
-        patternArgs.put("preserve_original", "false");
-        return new PatternCaptureGroupFilterFactory(patternArgs);
-    }
 
 }
 

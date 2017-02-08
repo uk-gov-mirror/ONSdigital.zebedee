@@ -21,22 +21,11 @@ public abstract class Page extends Content {
 
     private List<Link> topics;
     
-    /**
-     * Contains the raw text from the data.json file.
-     */
-    private List<String> pageData;
 
     public Page() {
         this.type = getType();
     }
 
-    public List<String> getPageData() {
-        return pageData;
-    }
-
-    public void setPageData(final List<String> pageData) {
-        this.pageData = pageData;
-    }
 
     public abstract PageType getType();
 

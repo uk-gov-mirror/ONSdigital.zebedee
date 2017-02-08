@@ -1,6 +1,7 @@
 package com.github.onsdigital.zebedee.util;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,8 +15,8 @@ import java.nio.file.Paths;
  * Created by bren on 10/09/15.
  */
 public class PathUtils {
-    private static final Logger LOGGER = LoggerFactory.getLogger(PathUtils.class);
     public static final String JSON = "json";
+    private static final Logger LOGGER = LoggerFactory.getLogger(PathUtils.class);
 
     public static URI toRelativeUri(Path root, Path child) {
 
@@ -47,4 +48,30 @@ public class PathUtils {
         return StringUtils.endsWithIgnoreCase(name, JSON);
 
     }
+
+    public static String substituteFileName(Path originalPath, String replacementFilename) {
+
+        //Get the just the filename as the the file should be in the same directort as the dataJson
+        String fileName = FilenameUtils.getName(replacementFilename);
+
+        String fullPath = originalPath.toFile()
+                                      .getAbsolutePath();
+
+        return concatenate(fullPath, fileName);
+    }
+
+    public static String concatenate(String fileBase, String extFileName) {
+
+        //Get the just the filename as the the file should be in the same directort as the dataJson
+
+        if (!StringUtils.endsWith(fileBase, "/")) {
+            fileBase = fileBase + "/";
+        }
+        if (StringUtils.startsWith(extFileName, "/")) {
+            extFileName = extFileName.substring(1);
+        }
+
+        return fileBase + extFileName;
+    }
+
 }

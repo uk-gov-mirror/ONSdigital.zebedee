@@ -80,7 +80,8 @@
         "type": "string",
         "term_vector": "with_positions_offsets",
         "analyzer": "ons_alphanumeric_synonyms_snowball",
-        "search_analyzer": "ons_alphanumeric_snowball"
+        "search_analyzer": "ons_alphanumeric_snowball",
+        "store": false
       },
       "downloads": {
         "properties": {
@@ -88,7 +89,8 @@
             "type": "string",
             "analyzer": "ons_alphanumeric_synonyms_snowball",
             "search_analyzer": "ons_alphanumeric_snowball",
-            "term_vector": "with_positions_offsets"
+            "term_vector": "with_positions_offsets",
+            "store": false
           },
           "file": {
             "type": "string"

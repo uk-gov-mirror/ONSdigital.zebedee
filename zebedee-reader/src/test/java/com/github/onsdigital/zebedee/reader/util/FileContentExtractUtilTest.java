@@ -121,7 +121,7 @@ public class FileContentExtractUtilTest {
                                                      .exists());
         List<String> csvContent = FileContentExtractUtil.extractText(testDataFile);
 
-        assertEquals(newArrayList("artichoke arugula asparagus artichoke avocado bamboo_shoots basil artichoke beans beets "),
+        assertEquals(newArrayList("bamboo_shoots arugula avocado basil beets beans artichoke asparagus"),
                      csvContent);
     }
 

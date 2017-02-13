@@ -9,8 +9,9 @@ ADD ./target/classes /usr/src/target/classes
 EXPOSE 9200
 
 # Update the entry point script
-ENTRYPOINT java -Xms4g -Xmx4g \
+ENTRYPOINT java -Xms2g -Xmx2g \
           -Drestolino.classes=target/classes \
           -Drestolino.packageprefix=com.github.onsdigital.zebedee.reader.api \
+          -Djava.util.concurrent.ForkJoinPool.common.parallelism=2 \
           -cp "target/dependency/*:target/classes/" \
           com.github.davidcarboni.restolino.Main

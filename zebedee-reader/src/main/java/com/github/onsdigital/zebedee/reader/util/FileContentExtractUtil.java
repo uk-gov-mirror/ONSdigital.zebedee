@@ -23,8 +23,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
-import static com.github.onsdigital.zebedee.reader.analyse.TextFilterUtil.extractAlphaNumericString;
+import static com.github.onsdigital.zebedee.reader.analyse.TextFilterUtil.extractAlphaNumericCaseSensitiveUniqueTokens;
 
 /**
  * Extract text content a file
@@ -63,7 +64,8 @@ public class FileContentExtractUtil {
           String str = extractRawText(downloadPath, documentMetadatas);
 
           if (isTabularContentType(documentMetadatas) || isTabularFileName(documentMetadatas)) {
-            str = extractAlphaNumericString(str);
+            str = extractAlphaNumericCaseSensitiveUniqueTokens(str).stream()
+                                                                   .collect(Collectors.joining(" "));
           }
           contentText = Lists.newArrayList(str);
         }

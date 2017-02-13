@@ -2,7 +2,7 @@
 
 source ./export-default-env-vars.sh
 
-export JAVA_OPTS="-Xdebug -Xrunjdwp:transport=dt_socket,address=8002,server=y,suspend=n -Xms4g -Xmx4g"
+export JAVA_OPTS="-Xdebug -Xrunjdwp:transport=dt_socket,address=8002,server=y,suspend=n -Xms2g -Xmx2g"
 export PORT="8082"
 
 # Restolino configuration
@@ -18,6 +18,6 @@ java $JAVA_OPTS \
  -Dcontent_dir=$CONTENT_DIR \
  -DSTART_EMBEDDED_SERVER=N \
  -Drestolino.packageprefix=$PACKAGE_PREFIX \
+ -Djava.util.concurrent.ForkJoinPool.common.parallelism=2 \
  -cp "zebedee-reader/target/classes/:zebedee-reader/target/dependency/*" \
  com.github.davidcarboni.restolino.Main
-

@@ -9,11 +9,12 @@ ADD ./zebedee-cms/target/classes /usr/src/target/classes
 EXPOSE 9200
 
 # Update the entry point script
-ENTRYPOINT java -Xms4g -Xmx4g \
+ENTRYPOINT java -Xms2g -Xmx2g \
           -Ddb_audit_url=$db_audit_url \
           -Ddb_audit_username=$db_audit_username \
           -Ddb_audit_password=$db_audit_password \
           -Drestolino.classes=target/classes \
           -Drestolino.packageprefix=com.github.onsdigital.zebedee.api \
+          -Djava.util.concurrent.ForkJoinPool.common.parallelism=2 \
           -cp "target/dependency/*:target/classes/" \
           com.github.davidcarboni.restolino.Main

@@ -308,7 +308,7 @@ public class Indexer {
     final AtomicLong partitionDocCounter = new AtomicLong();
 
 //Convert all to a IndexRequestBuilder and then one complete index in a quick bulkprocessor
-    List<IndexRequestBuilder> collect = partitionedDocuments.parallelStream()
+    List<IndexRequestBuilder> collect = partitionedDocuments.stream()// Possible to parallize but capacity on Boxes are limited
                                                             .map(document -> buildIndexRequest(indexName,
                                                                                                document,
                                                                                                partitionCounter,
@@ -339,14 +339,9 @@ public class Indexer {
     try {
       long start = System.currentTimeMillis();
 
-      LOGGER.info(
-              "buildIndexRequest([indexName, document, partitionNumber, counter]) Partition #{} Building Doc #{} in document {} ",
-              partitionNumber,
-              counter,
-              document.getUri());
       indexRequestBuilder = prepareIndexRequest(indexName, document, partitionNumber);
       long end = System.currentTimeMillis();
-      LOGGER.info(
+      LOGGER.debug(
               "buildIndexRequest([indexName, document, partitionNumber, counter]) Partition #{} Built Doc #{} in document {} taking {} ms",
               partitionNumber,
               counter,
@@ -422,10 +417,9 @@ public class Indexer {
 
       List<DownloadSection> downloads = downloadablePage.getDownloads();
       if (null != downloads) {
-        downloads
-                .stream()
-                .filter(d -> null != d)
-                .forEach(dwnlds -> {
+        downloads.stream()//Possible to use parallelStreams but there is limited capacity on the host
+                 .filter(d -> null != d)
+                 .forEach(dwnlds -> {
                   List<String> content = ContentExtractorFactory.getInstance(page, dwnlds.getFile())
                                                                 .extract();
                   dwnlds.setContent(content);

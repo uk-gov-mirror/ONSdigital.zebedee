@@ -53,8 +53,10 @@ public class ContentExtractor {
      */
 
     private List<String> extractText(final Path downloadPath) {
-        LOGGER.info("extractText([downloadPath]) : ");
-        return FileContentExtractUtil.extractText(downloadPath);
+        LOGGER.debug("extractText([downloadPath]) : extracting {}", downloadPath);
+        List<String> strings = FileContentExtractUtil.extractText(downloadPath);
+        LOGGER.debug("extractText([downloadPath]) : extracted {}", downloadPath);
+        return strings;
     }
 
     /**

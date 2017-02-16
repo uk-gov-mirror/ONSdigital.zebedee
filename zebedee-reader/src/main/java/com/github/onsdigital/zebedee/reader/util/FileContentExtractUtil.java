@@ -73,17 +73,13 @@ public class FileContentExtractUtil {
       else {
         LOGGER.error("extractContent([pageURI, filePath]) : file {} can not be found and can not be loaded");
       }
-
-
     }
     catch (TikaException | IOException te) {
       LOGGER.error("extractContent([pageURI, filePath]) : error extracting file {} ", te.getMessage(), te);
     }
 
     return contentText;
-
   }
-
   /**
    * Does the collection of metadata object contain Content-Type(s) that represent a tabular dataset
    *

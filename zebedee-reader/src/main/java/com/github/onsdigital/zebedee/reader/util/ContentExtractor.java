@@ -22,6 +22,7 @@ public class ContentExtractor {
     private final Page page;
     private final String filePath;
 
+
     public ContentExtractor(final String rootPath, final Page page, final String filePath) {
 
         this.rootPath = rootPath;
@@ -53,10 +54,8 @@ public class ContentExtractor {
      */
 
     private List<String> extractText(final Path downloadPath) {
-        LOGGER.debug("extractText([downloadPath]) : extracting {}", downloadPath);
-        List<String> strings = FileContentExtractUtil.extractText(downloadPath);
-        LOGGER.debug("extractText([downloadPath]) : extracted {}", downloadPath);
-        return strings;
+
+        return FileContentExtractUtil.extractText(downloadPath);
     }
 
     /**

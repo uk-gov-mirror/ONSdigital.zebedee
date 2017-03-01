@@ -17,23 +17,37 @@ import java.nio.file.Paths;
 public class PathUtils {
     public static final String JSON = "json";
     private static final Logger LOGGER = LoggerFactory.getLogger(PathUtils.class);
+    public static final long MB_BYTES = 1024 * 1024;
 
     public static URI toRelativeUri(Path root, Path child) {
 
         // Handle spaces in filenames. An exception is thrown if the URI is created with spaces, so we encode them.
         if (child.toString()
-                 .contains(" ")) {
+                .contains(" ")) {
             child = Paths.get(child.toString()
-                                   .replace(" ", "%20"));
+                    .replace(" ", "%20"));
         }
 
         return URI.create("/" + URIUtils.removeTrailingSlash(root.toUri()
-                                                                 .relativize(child.toUri())
-                                                                 .getPath()));
+                .relativize(child.toUri())
+                .getPath()));
     }
 
     public static String readFileToString(final Path path) throws IOException {
         return FileUtils.readFileToString(path.toFile());
+    }
+
+    public static double sizeInMB(final Path path) {
+        final double length = size(path);
+        return length / MB_BYTES;
+    }
+
+    public static long size(Path path) {
+        long size = 0;
+        if (null != path && null != path.toFile()) {
+            size = path.toFile().length();
+        }
+        return size;
     }
 
     public static boolean isJsonFile(final Path downloadPath) {
@@ -41,9 +55,9 @@ public class PathUtils {
         String name = null;
 
         if (null != downloadPath && downloadPath.toFile()
-                                                .exists()) {
+                .exists()) {
             name = downloadPath.toFile()
-                               .getName();
+                    .getName();
         }
         return StringUtils.endsWithIgnoreCase(name, JSON);
 
@@ -55,7 +69,7 @@ public class PathUtils {
         String fileName = FilenameUtils.getName(replacementFilename);
 
         String fullPath = originalPath.toFile()
-                                      .getAbsolutePath();
+                .getAbsolutePath();
 
         return concatenate(fullPath, fileName);
     }

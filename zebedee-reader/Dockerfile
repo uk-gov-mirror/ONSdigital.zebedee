@@ -12,6 +12,6 @@ EXPOSE 9200
 ENTRYPOINT java -Xms2g -Xmx2g \
           -Drestolino.classes=target/classes \
           -Drestolino.packageprefix=com.github.onsdigital.zebedee.reader.api \
-          -Djava.util.concurrent.ForkJoinPool.common.parallelism=2 \
+          -Djava.util.concurrent.ForkJoinPool.common.parallelism=12 \
           -cp "target/dependency/*:target/classes/" \
           com.github.davidcarboni.restolino.Main

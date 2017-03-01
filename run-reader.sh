@@ -18,6 +18,6 @@ java $JAVA_OPTS \
  -Dcontent_dir=$CONTENT_DIR \
  -DSTART_EMBEDDED_SERVER=N \
  -Drestolino.packageprefix=$PACKAGE_PREFIX \
- -Djava.util.concurrent.ForkJoinPool.common.parallelism=2 \
+ -Djava.util.concurrent.ForkJoinPool.common.parallelism=12 \
  -cp "zebedee-reader/target/classes/:zebedee-reader/target/dependency/*" \
  com.github.davidcarboni.restolino.Main

@@ -8,6 +8,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.github.onsdigital.zebedee.reader.util.FileContentExtractUtil.isCompressed;
 import static com.google.common.collect.Lists.newArrayList;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -146,5 +147,91 @@ public class FileContentExtractUtilTest {
         List<String> csvContent = FileContentExtractUtil.extractText(testDataFile);
         assertNull(csvContent);
 
+    }
+
+    @Test
+    public void isPathCompressedTar() {
+        Path tarFile = Paths.get("/local/blahs/bloo.tAr");
+        assertTrue(isCompressed(tarFile));
+    }
+
+    @Test
+    public void isPathCompressedZip() {
+        Path fle = Paths.get("/local/blahs/bloo.ziP");
+        assertTrue(isCompressed(fle));
+    }
+
+    @Test
+    public void isPathCompressedGz() {
+        Path fle = Paths.get("/local/blahs/bloo.gz");
+        assertTrue(isCompressed(fle));
+    }
+
+
+    @Test
+    public void isPathCompressedXls() {
+        Path file = Paths.get("/local/blahs/bloo.xlsx");
+        assertFalse(isCompressed(file));
+    }
+
+    @Test
+    public void isPathCompressedLogx() {
+        Path file = Paths.get("/local/blahs/bloo.logx");
+        assertFalse(isCompressed(file));
+    }
+
+
+    @Test
+    public void isPathCompressedLog() {
+        Path fle = Paths.get("/local/blahs/bloo.log");
+        assertFalse(isCompressed(fle));
+    }
+
+
+    @Test
+    public void isPathCompressedRar() {
+        Path fle = Paths.get("/local/blahs/bloo.rar");
+        assertTrue(isCompressed(fle));
+    }
+
+
+    @Test
+    public void isFilenameCompressedTar() {
+
+        assertTrue(isCompressed("/local/blahs/bloo.tAr"));
+    }
+
+    @Test
+    public void isFilenameCompressedZip() {
+
+        assertTrue(isCompressed("/local/blahs/bloo.ziP"));
+    }
+
+    @Test
+    public void isFilenameCompressedGz() {
+        assertTrue(isCompressed("/local/blahs/bloo.gz"));
+    }
+
+
+    @Test
+    public void isFilenameCompressedXls() {
+        assertFalse(isCompressed("/local/blahs/bloo.xlsx"));
+    }
+
+    @Test
+    public void isFilenameCompressedLogx() {
+        assertFalse(isCompressed("/local/blahs/bloo.logx"));
+    }
+
+
+    @Test
+    public void isFilenameCompressedLog() {
+        assertFalse(isCompressed("/local/blahs/bloo.log"));
+    }
+
+
+    @Test
+    public void isFilenameCompressedRar() {
+        assertTrue(isCompressed("/local/blahs/bloo.rar"));
     }
 }

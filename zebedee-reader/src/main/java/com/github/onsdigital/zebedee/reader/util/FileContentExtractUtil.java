@@ -19,13 +19,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.github.onsdigital.zebedee.reader.analyse.TextFilterUtil.extractAlphaNumericCaseSensitiveUniqueTokens;
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
 /**
  * Extract text content a file
@@ -34,131 +32,170 @@ import static com.github.onsdigital.zebedee.reader.analyse.TextFilterUtil.extrac
  */
 public class FileContentExtractUtil {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(FileContentExtractUtil.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(FileContentExtractUtil.class);
+    public static final List<String> COMPRESSED_EXNS = Lists.newArrayList(".bz2",
+                                                                          ".gz",
+                                                                          ".tar",
+                                                                          ".s7z",
+                                                                          ".7z",
+                                                                          ".rar",
+                                                                          ".tgz",
+                                                                          ".z",
+                                                                          ".zip",
+                                                                          ".zipx");
 
 
-  private FileContentExtractUtil() {
-    //DO NOT INSTANTIATE
-  }
+    private FileContentExtractUtil() {
+        //DO NOT INSTANTIATE
+    }
 
 
-  /**
-   * Use tika to extract File contents, if the content is from a tabular file (i.e. csv, opendocument-sheets or excel)
-   * then the text is a unique list of all the alphanumeric terms
-   *
-   * @param downloadPath
-   * @return String containing the text
-   */
+    /**
+     * Use tika to extract File contents, if the content is from a tabular file (i.e. csv, opendocument-sheets or excel)
+     * then the text is a unique list of all the alphanumeric terms
+     *
+     * @param downloadPath
+     * @return String containing the text
+     */
 
-  public static List<String> extractText(final Path downloadPath) {
-    List<String> contentText = null;
-    try {
-      if (null != downloadPath) {
-        //Tika does not handle json
-        if (PathUtils.isJsonFile(downloadPath)) {
-          contentText = new JsonToStringConverter(PathUtils.readFileToString(downloadPath)).extractText();
+    public static List<String> extractText(final Path downloadPath) {
+        List<String> contentText = null;
+        try {
+            if (null != downloadPath) {
+                //Tika does not handle json
+                if (PathUtils.isJsonFile(downloadPath)) {
+                    contentText = new JsonToStringConverter(PathUtils.readFileToString(downloadPath)).extractText();
+                }
+                else {
+                    ArrayList<Metadata> documentMetadatas = new ArrayList<>();
+
+                    String str = extractRawText(downloadPath, documentMetadatas);
+
+                    if (isTabularContentType(documentMetadatas) || isTabularFileName(documentMetadatas)) {
+                        str = extractAlphaNumericCaseSensitiveUniqueTokens(str).stream()
+                                                                               .collect(Collectors.joining(" "));
+                    }
+                    contentText = Lists.newArrayList(str);
+                }
+            }
+            else {
+                LOGGER.error("extractContent([pageURI, filePath]) : file {} can not be found and can not be loaded");
+            }
         }
-        else {
-          ArrayList<Metadata> documentMetadatas = new ArrayList<>();
-
-          String str = extractRawText(downloadPath, documentMetadatas);
-
-          if (isTabularContentType(documentMetadatas) || isTabularFileName(documentMetadatas)) {
-            str = extractAlphaNumericCaseSensitiveUniqueTokens(str).stream()
-                                                                   .collect(Collectors.joining(" "));
-          }
-          contentText = Lists.newArrayList(str);
+        catch (TikaException | IOException te) {
+            LOGGER.error("extractContent([pageURI, filePath]) : error extracting file {} ", te.getMessage(), te);
         }
-      }
-      else {
-        LOGGER.error("extractContent([pageURI, filePath]) : file {} can not be found and can not be loaded");
-      }
-    }
-    catch (TikaException | IOException te) {
-      LOGGER.error("extractContent([pageURI, filePath]) : error extracting file {} ", te.getMessage(), te);
+
+        return contentText;
     }
 
-    return contentText;
-  }
-  /**
-   * Does the collection of metadata object contain Content-Type(s) that represent a tabular dataset
-   *
-   * @param documentMetadatas
-   * @return
-   */
-  static boolean isTabularContentType(final Collection<Metadata> documentMetadatas) {
-    return documentMetadatas.stream()
-                            .map(m -> m.get("Content-Type"))
-                            .filter(Objects::nonNull)
-                            .anyMatch(type -> type.contains("spreadsheetml")
-                                    || type.contains("text/csv")
-                                    || type.contains("application/xml")
-                                    || type.contains("excel")
-                                    || type.contains("msaccess")
-                                    || type.contains("x-123"));
-  }
-
-  /**
-   * Does the collection of metadata object contain Filenames that represent a tabular dataform
-   *
-   * @param documentMetadatas
-   * @return
-   */
-  static boolean isTabularFileName(final Collection<Metadata> documentMetadatas) {
-    return documentMetadatas.stream()
-                            .map(m -> m.get("resourceName"))
-                            .filter(Objects::nonNull)
-                            .anyMatch(name -> name.endsWith("csv")
-                                    || name.endsWith("xls")
-                                    || name.endsWith("xlsx")
-                                    || name.endsWith("xml"));
-  }
-
-
-  /**
-   * Extract the String content from the file. If the file is a zip file it will extract the content recursively from the zip file.
-   * The optional documentMetadatas parameter will report metadata on each file within the zip or just the parent document for normal content
-   *
-   * @param path
-   * @param documentMetadatas collection of Metadata object representing each file in the 'file'
-   * @return the raw text from the file(s)
-   * @throws IOException
-   * @throws TikaException
-   */
-
-  private static String extractRawText(final Path path,
-                                       final List<Metadata> documentMetadatas) throws IOException, TikaException {
-    WriteOutContentHandler handler =
-            new WriteOutContentHandler(Integer.MAX_VALUE);
-
-
-    try (InputStream stream = Files.newInputStream(path)) {
-      Metadata parentMetadata = new Metadata();
-      parentMetadata.set(Metadata.RESOURCE_NAME_KEY,
-                         path.getFileName()
-                             .toString());
-      documentMetadatas.add(parentMetadata);
-
-      ParseContext context = new ParseContext();
-
-      context.set(DocumentSelector.class, metadata -> {
-        documentMetadatas.add(metadata);
-        return true;
-      });
-
-
-      final AutoDetectParser parser = new AutoDetectParser(TikaConfig.getDefaultConfig());
-      context.set(Parser.class, parser);
-      parser.parse(stream, new BodyContentHandler(handler), parentMetadata, context);
+    /**
+     * Does the collection of metadata object contain Content-Type(s) that represent a tabular dataset
+     *
+     * @param documentMetadatas
+     * @return
+     */
+    static boolean isTabularContentType(final Collection<Metadata> documentMetadatas) {
+        return documentMetadatas.stream()
+                                .map(m -> m.get("Content-Type"))
+                                .filter(Objects::nonNull)
+                                .anyMatch(type -> type.contains("spreadsheetml")
+                                        || type.contains("text/csv")
+                                        || type.contains("application/xml")
+                                        || type.contains("excel")
+                                        || type.contains("msaccess")
+                                        || type.contains("x-123"));
     }
-    catch (SAXException e) {
-      if (!handler.isWriteLimitReached(e)) {
-        // This should never happen with BodyContentHandler...
-        throw new TikaException("Unexpected SAX processing failure", e);
-      }
+
+    /**
+     * Does the collection of metadata object contain Filenames that represent a tabular dataform
+     *
+     * @param documentMetadatas
+     * @return
+     */
+    static boolean isTabularFileName(final Collection<Metadata> documentMetadatas) {
+        return documentMetadatas.stream()
+                                .map(m -> m.get("resourceName"))
+                                .filter(Objects::nonNull)
+                                .anyMatch(name -> name.endsWith("csv")
+                                        || name.endsWith("xls")
+                                        || name.endsWith("xlsx")
+                                        || name.endsWith("xml"));
     }
-    return handler.toString();
-  }
+
+    /**
+     * Is the file a compressed file.
+     * i.e. is it a zip or a tar or rar
+     */
+    static boolean isCompressed(Path path) {
+        boolean isCompressed = false;
+        if (null != path && null != path.getFileName()) {
+            String fileName = path.getFileName()
+                                  .toString();
+            isCompressed = isCompressed(fileName);
+        }
+        return isCompressed;
+    }
+
+    public static boolean isCompressed(final String fileName) {
+        boolean isCompressed = false;
+        if (isNotBlank(fileName)) {
+            Optional<String> first = COMPRESSED_EXNS.stream()
+                                                    .filter(extn -> fileName.toLowerCase()
+                                                                            .endsWith(extn))
+                                                    .findFirst();
+            isCompressed = first.isPresent();
+        }
+        return isCompressed;
+    }
+
+
+    /**
+     * Extract the String content from the file. If the file is a zip file it will extract the content recursively from the zip file.
+     * The optional documentMetadatas parameter will report metadata on each file within the zip or just the parent document for normal content
+     *
+     * @param path
+     * @param documentMetadatas collection of Metadata object representing each file in the 'file'
+     * @return the raw text from the file(s)
+     * @throws IOException
+     * @throws TikaException
+     */
+
+    private static String extractRawText(final Path path,
+                                         final List<Metadata> documentMetadatas) throws IOException, TikaException {
+        WriteOutContentHandler handler =
+                new WriteOutContentHandler(Integer.MAX_VALUE);
+
+
+        try (InputStream stream = Files.newInputStream(path)) {
+            Metadata parentMetadata = new Metadata();
+
+            parentMetadata.set(Metadata.RESOURCE_NAME_KEY,
+                               path.getFileName()
+                                   .toString());
+
+            documentMetadatas.add(parentMetadata);
+
+            ParseContext context = new ParseContext();
+
+            context.set(DocumentSelector.class, metadata -> {
+                documentMetadatas.add(metadata);
+                return true;
+            });
+
+
+            final AutoDetectParser parser = new AutoDetectParser(TikaConfig.getDefaultConfig());
+            context.set(Parser.class, parser);
+            parser.parse(stream, new BodyContentHandler(handler), parentMetadata, context);
+        }
+        catch (SAXException e) {
+            if (!handler.isWriteLimitReached(e)) {
+                // This should never happen with BodyContentHandler...
+                throw new TikaException("Unexpected SAX processing failure", e);
+            }
+        }
+        return handler.toString();
+    }
 
 
 }

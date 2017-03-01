@@ -15,6 +15,6 @@ ENTRYPOINT java -Xms2g -Xmx2g \
           -Ddb_audit_password=$db_audit_password \
           -Drestolino.classes=target/classes \
           -Drestolino.packageprefix=com.github.onsdigital.zebedee.api \
-          -Djava.util.concurrent.ForkJoinPool.common.parallelism=2 \
+          -Djava.util.concurrent.ForkJoinPool.common.parallelism=12 \
           -cp "target/dependency/*:target/classes/" \
           com.github.davidcarboni.restolino.Main

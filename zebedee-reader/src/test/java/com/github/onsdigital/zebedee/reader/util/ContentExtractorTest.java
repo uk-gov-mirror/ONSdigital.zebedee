@@ -15,6 +15,7 @@ import java.net.URI;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 /**
  * Created by fawks on 08/02/2017.
@@ -32,7 +33,7 @@ public class ContentExtractorTest {
     }
 
     @Test
-    public void getInstance() throws Exception {
+    public void testExtractZip() throws Exception {
 
 
         Dataset dataset = new Dataset();
@@ -42,17 +43,50 @@ public class ContentExtractorTest {
         dataset.setDownloads(Lists.newArrayList(ds));
         ContentExtractor instance = ContentExtractorFactory.getInstance(dataset,
                                                                         "ContentExtractorTest.downloadFile.zip");
+        List<String> actual = instance.extract();
+
+        //Check the contents
+        assertNull(actual);
+
+    }
+    @Test
+    public void testExtractTxt() throws Exception {
+
+
+        Dataset dataset = new Dataset();
+        dataset.setUri(new URI("ContentExtractorTest/dataset"));
+        DownloadSection ds = new DownloadSection();
+        ds.setFile("tobeornottobe.txt");
+        dataset.setDownloads(Lists.newArrayList(ds));
+        ContentExtractor instance = ContentExtractorFactory.getInstance(dataset,
+                                                                        "tobeornottobe.txt");
         String fileName = "tobeornottobe.txt";
-        StringBuilder bldr = new StringBuilder(fileName).append("\n");
-        bldr.append(FileUtils.readFileToString(new File("src/test/resources/ContentExtractorTest/dataset/" + fileName)));
+        String contents = FileUtils.readFileToString(new File("src/test/resources/ContentExtractorTest/dataset/" + fileName));
         List<String> actual = instance.extract();
         LOGGER.info("getInstance([]) : {}", actual);
 
         //Check the contents
-        assertEquals(bldr.toString()
-                         .trim(),
+        assertEquals(contents
+                             .trim(),
                      actual.get(0)
                            .trim());
+
+    }
+
+    @Test
+    public void testToLargeAFile() throws Exception {
+
+        Dataset dataset = new Dataset();
+        dataset.setUri(new URI("com/github/onsdigital/zebedee/util"));
+        DownloadSection ds = new DownloadSection();
+        dataset.setDownloads(Lists.newArrayList(ds));
+        ContentExtractor instance = ContentExtractorFactory.getInstance(dataset,
+                                                                        "com/github/onsdigital/zebedee/util/11MB.zip");
+        List<String> actual = instance.extract();
+        LOGGER.info("getInstance([]) : {}", actual);
+
+        //Check the contents
+        assertNull(actual);
 
     }
 

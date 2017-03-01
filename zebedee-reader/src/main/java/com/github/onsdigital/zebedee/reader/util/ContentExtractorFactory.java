@@ -11,8 +11,9 @@ import org.slf4j.LoggerFactory;
 
 public class ContentExtractorFactory {
     static String rootFolder = ReaderConfiguration.getConfiguration()
-                                                                .getContentDir();
+                                                  .getContentDir();
     private static final Logger LOGGER = LoggerFactory.getLogger(ContentExtractorFactory.class);
+
 
     static {
         LOGGER.info("static initializer() : Root Dir {} ", rootFolder);

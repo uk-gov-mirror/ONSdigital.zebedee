@@ -20,6 +20,7 @@ import com.github.onsdigital.zebedee.model.publishing.scheduled.Scheduler;
 import com.github.onsdigital.zebedee.reader.configuration.ReaderConfiguration;
 import com.github.onsdigital.zebedee.util.SlackNotification;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.mail.EmailException;
 
 import javax.crypto.SecretKey;
 import java.io.IOException;
@@ -101,7 +102,7 @@ public class Root {
                 Path taxonomy = Paths.get(".").resolve(Configuration.getContentDirectory());
                 List<Path> content = listContent(taxonomy);
                 copyContent(content, taxonomy);
-            } catch (IOException | UnauthorizedException | BadRequestException | NotFoundException e) {
+            } catch (IOException | UnauthorizedException | BadRequestException | NotFoundException | EmailException e) {
                 throw new RuntimeException("Error initialising Zebedee ", e);
             }
         }

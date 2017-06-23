@@ -24,6 +24,7 @@ import com.github.onsdigital.zebedee.model.encryption.ApplicationKeys;
 import com.github.onsdigital.zebedee.model.publishing.PublishedCollections;
 import com.github.onsdigital.zebedee.reader.FileSystemContentReader;
 import com.github.onsdigital.zebedee.verification.VerificationAgent;
+import org.apache.commons.mail.EmailException;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -131,7 +132,7 @@ public class Zebedee {
      * @return A {@link Zebedee} instance representing the newly created folder.
      * @throws IOException If a filesystem error occurs.
      */
-    public static Zebedee create(Path parent) throws IOException, UnauthorizedException, NotFoundException, BadRequestException {
+    public static Zebedee create(Path parent) throws IOException, UnauthorizedException, NotFoundException, BadRequestException, EmailException {
 
         // Create the folder structure
         Path path;

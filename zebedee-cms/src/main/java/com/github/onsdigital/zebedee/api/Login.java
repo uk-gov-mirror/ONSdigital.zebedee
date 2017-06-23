@@ -25,6 +25,7 @@ public class Login {
     private static final String LOGIN_SUCCESS_MSG = "Florence login success";
     private static final String LOGIN_AUTH_FAILURE_MSG = "Login authentication failure";
     private static final String PASSWORD_CHANGE_REQUIRED_MSG = "Florence password change required";
+    private static final String EMAIL_VERIFICATION_REQUIRED_MSG = "Email verification required";
 
     /**
      * Authenticates with Zebedee.
@@ -47,7 +48,28 @@ public class Login {
             return "Please provide credentials (email, password).";
         }
 
+        boolean isVerification = false;
+        if(credentials.email.startsWith("<verify>:")) {
+            credentials.email = credentials.email.substring("<verify>:".length());
+            isVerification = true;
+        }
+
         User user = Root.zebedee.getUsers().get(credentials.email);
+
+        if (isVerification && user.verificationRequired != null && user.verificationRequired) {
+            if(user.verify(credentials.password)) {
+                response.setStatus(HttpStatus.EXPECTATION_FAILED_417);
+                Audit.Event.LOGIN_PASSWORD_CHANGE_REQUIRED.parameters().host(request).user(credentials.email).log();
+                ZebedeeLogBuilder.logInfo(PASSWORD_CHANGE_REQUIRED_MSG).user(credentials.email).log();
+                return "Password change required";
+            }
+
+            response.setStatus(HttpStatus.FORBIDDEN_403);
+            Audit.Event.EMAIL_VERIFICATION_REQUIRED.parameters().host(request).user(credentials.email).log();
+            ZebedeeLogBuilder.logInfo(EMAIL_VERIFICATION_REQUIRED_MSG).user(credentials.email).log();
+            return "Email verification required";
+        }
+
         boolean result = user.authenticate(credentials.password);
 
         if (!result) {

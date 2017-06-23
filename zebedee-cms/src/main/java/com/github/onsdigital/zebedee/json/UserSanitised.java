@@ -13,6 +13,7 @@ public class UserSanitised {
 
     public String name;
     public String email;
+    public String ownerEmail;
 
     /**
      * This field is {@link Boolean} rather than <code>boolean</code> so that it can be <code>null</code> in an update message.
@@ -41,6 +42,7 @@ public class UserSanitised {
         return new EqualsBuilder()
                 .append(name, that.name)
                 .append(email, that.email)
+                .append(ownerEmail, that.ownerEmail)
                 .append(inactive, that.inactive)
                 .append(lastAdmin, that.lastAdmin)
                 .isEquals();
@@ -51,6 +53,7 @@ public class UserSanitised {
         return new HashCodeBuilder(17, 37)
                 .append(name)
                 .append(email)
+                .append(ownerEmail)
                 .append(inactive)
                 .append(lastAdmin)
                 .toHashCode();

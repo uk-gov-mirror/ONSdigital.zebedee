@@ -29,6 +29,8 @@ public class Audit {
 
         LOGIN_PASSWORD_CHANGE_REQUIRED("User login successful password change required"),
 
+        EMAIL_VERIFICATION_REQUIRED("Email verification is required"),
+
         PASSWORD_CHANGED_SUCCESS("User password change successfully"),
 
         PASSWORD_CHANGED_FAILURE("User password change failed"),

@@ -12,6 +12,7 @@ import com.github.onsdigital.zebedee.json.User;
 import com.github.onsdigital.zebedee.json.UserList;
 import com.github.onsdigital.zebedee.json.UserSanitised;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.mail.EmailException;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -77,7 +78,7 @@ public class Users {
      */
     @POST
     public UserSanitised create(HttpServletRequest request, HttpServletResponse response, User user) throws
-            IOException, ConflictException, BadRequestException, UnauthorizedException {
+            IOException, ConflictException, BadRequestException, UnauthorizedException, EmailException {
         Session session = Root.zebedee.getSessions().get(request);
         User created = Root.zebedee.getUsers().create(session, user);
 
@@ -101,7 +102,7 @@ public class Users {
      */
     @PUT
     public UserSanitised update(HttpServletRequest request, HttpServletResponse response, User updatedUser) throws
-            IOException, NotFoundException, BadRequestException, UnauthorizedException {
+            IOException, NotFoundException, BadRequestException, UnauthorizedException, EmailException {
         Session session = Root.zebedee.getSessions().get(request);
 
         String email = request.getParameter("email");

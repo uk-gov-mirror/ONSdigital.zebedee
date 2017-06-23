@@ -7,9 +7,12 @@ import com.github.onsdigital.zebedee.exceptions.ConflictException;
 import com.github.onsdigital.zebedee.exceptions.NotFoundException;
 import com.github.onsdigital.zebedee.exceptions.UnauthorizedException;
 import com.github.onsdigital.zebedee.json.*;
+import com.github.onsdigital.zebedee.service.SMTPService;
 import com.google.gson.JsonSyntaxException;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.mail.EmailException;
+import org.bouncycastle.crypto.generators.BCrypt;
 
 import javax.crypto.SecretKey;
 import java.io.IOException;
@@ -20,6 +23,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 import static com.github.onsdigital.zebedee.logging.ZebedeeLogBuilder.logDebug;
 import static com.github.onsdigital.zebedee.logging.ZebedeeLogBuilder.logError;
@@ -47,7 +51,7 @@ public class Users {
      * @param session  An administrator session.
      * @throws IOException If a filesystem error occurs.
      */
-    public static void createPublisher(Zebedee zebedee, User user, String password, Session session) throws IOException, UnauthorizedException, ConflictException, BadRequestException, NotFoundException {
+    public static void createPublisher(Zebedee zebedee, User user, String password, Session session) throws IOException, UnauthorizedException, ConflictException, BadRequestException, NotFoundException, EmailException {
         zebedee.getUsers().create(session, user);
         Credentials credentials = new Credentials();
         credentials.email = user.email;
@@ -64,7 +68,7 @@ public class Users {
      * @param password The plaintext password for the user.
      * @throws IOException If a filesystem error occurs.
      */
-    public static void createSystemUser(Zebedee zebedee, User user, String password) throws IOException, UnauthorizedException, NotFoundException, BadRequestException {
+    public static void createSystemUser(Zebedee zebedee, User user, String password) throws IOException, UnauthorizedException, NotFoundException, BadRequestException, EmailException {
 
         if (zebedee.getPermissions().hasAdministrator()) {
             // An initial system user already exists
@@ -213,7 +217,7 @@ public class Users {
      * @return The newly created user, unless a user already exists, or the supplied {@link com.github.onsdigital.zebedee.json.User} is not valid.
      * @throws IOException If a filesystem error occurs.
      */
-    public User create(Session session, User user) throws UnauthorizedException, IOException, ConflictException, BadRequestException {
+    public User create(Session session, User user) throws UnauthorizedException, IOException, ConflictException, BadRequestException, EmailException {
 
         // Check the user has create permissions
         if (!zebedee.getPermissions().isAdministrator(session)) {
@@ -225,7 +229,7 @@ public class Users {
         }
 
         if (!valid(user)) {
-            throw new BadRequestException("Insufficient user details given (name, email)");
+            throw new BadRequestException("Insufficient user details given (name, email, ownerEmail)");
         }
 
         return create(user, session.email);
@@ -239,8 +243,11 @@ public class Users {
      * @return The newly created user, unless a user already exists, or the supplied {@link com.github.onsdigital.zebedee.json.User User} is not valid.
      * @throws IOException If a filesystem error occurs.
      */
-    User create(User user, String lastAdmin) throws IOException {
+    User create(User user, String lastAdmin) throws IOException, EmailException {
         User result = null;
+
+        // TODO bcrypt this code
+        String code = UUID.randomUUID().toString();
 
         if (valid(user) && !exists(user.email)) {
 
@@ -250,7 +257,16 @@ public class Users {
             result.inactive = true;
             result.temporaryPassword = true;
             result.lastAdmin = lastAdmin;
+            result.ownerEmail = user.ownerEmail;
+
+            result.verificationHash = code;
+            result.verificationRequired = true;
+
             write(result);
+
+            if(user.ownerEmail != null && user.ownerEmail.contains("@")) {
+                SMTPService.SendVerificationEmail(user.name, user.ownerEmail, user.email, code);
+            }
         }
 
         return result;
@@ -268,7 +284,10 @@ public class Users {
      * @throws NotFoundException     - user account does not exist
      * @throws BadRequestException   - problem with the update
      */
-    public User update(Session session, User user, User updatedUser) throws IOException, UnauthorizedException, NotFoundException, BadRequestException {
+    public User update(Session session, User user, User updatedUser) throws IOException, UnauthorizedException, NotFoundException, BadRequestException, EmailException {
+
+        // TODO bcrypt this code
+        String code = UUID.randomUUID().toString();
 
         if (zebedee.getPermissions().isAdministrator(session.email) == false) {
             throw new UnauthorizedException("Administrator permissions required");
@@ -282,8 +301,17 @@ public class Users {
 //            throw new BadRequestException("Insufficient user details given (name, email)");
 //        }
 
+        if(updatedUser.ownerEmail != user.ownerEmail) {
+            updatedUser.verificationHash = code;
+            updatedUser.verificationRequired = true;
+        }
+
         // Update
         User updated = update(user, updatedUser, session.email);
+
+        if(updatedUser.verificationRequired) {
+            SMTPService.SendVerificationEmail(user.name, user.ownerEmail, user.email, code);
+        }
 
         // We'll allow changing the email at some point.
         // It entails renaming the json file and checking
@@ -410,34 +438,35 @@ public class Users {
 
         User user = read(credentials.email);
 
-        // If own user updating, ensure the old password is correct
-        if (!zebedee.getPermissions().isAdministrator(session) && !user.authenticate(credentials.oldPassword)) {
+        // Ensure the old password is correct
+        if (!user.authenticate(credentials.oldPassword)) {
             throw new UnauthorizedException("Authentication failed with old password.");
         }
 
         if (credentials.email.equalsIgnoreCase(session.email) && StringUtils.isNotBlank(credentials.password)) {
             // User changing their own password
             result = changePassword(user, credentials.oldPassword, credentials.password);
-        } else if (zebedee.getPermissions().isAdministrator(session.email) || !zebedee.getPermissions().hasAdministrator()) {
-            // Administrator reset, or system setup
-
-            // Grab current keyring (null if this is system setup)
-            Keyring originalKeyring = null;
-            if (user.keyring != null) originalKeyring = user.keyring.clone();
-
-            resetPassword(user, credentials.password, session.email);
-
-            // Restore the user keyring (or not if this is system setup)
-            if (originalKeyring != null)
-                KeyManager.transferKeyring(user.keyring, zebedee.getKeyringCache().get(session), originalKeyring.list());
-
-            // Save the user
-            write(user);
-
-            result = true;
         }
 
         return result;
+    }
+
+    public boolean createPassword(Credentials credentials) throws IOException, UnauthorizedException, BadRequestException, NotFoundException {
+        boolean result = false;
+
+        // Check the request
+        if (credentials == null || !zebedee.getUsers().exists(credentials.email)) {
+            throw new BadRequestException("Please provide credentials (email, password[, oldPassword])");
+        }
+
+        User user = read(credentials.email);
+
+        // Ensure the old password is correct
+        if (!user.verify(credentials.oldPassword)) {
+            throw new UnauthorizedException("Verification failed with code");
+        }
+
+        return changePassword(user, credentials.oldPassword, credentials.password);
     }
 
     /**
@@ -501,7 +530,7 @@ public class Users {
      * @return If the user is not null and neither email nor name ar blank, true.
      */
     private boolean valid(User user) {
-        return user != null && StringUtils.isNoneBlank(user.email, user.name);
+        return user != null && StringUtils.isNoneBlank(user.email, user.name, user.ownerEmail);
     }
 
     /**

@@ -16,6 +16,8 @@ public class User extends UserSanitised {
     // to unlock the keyring, so we need to
     // manage these fields together.
     private String passwordHash;
+    public String verificationHash;
+    public Boolean verificationRequired;
     public Keyring keyring;
 
     /**
@@ -31,7 +33,17 @@ public class User extends UserSanitised {
      * @return If the given password can be verified against {@link #passwordHash}, true.
      */
     public boolean authenticate(String password) {
+        if(verificationRequired != null && verificationRequired) return false;
+
         return Password.verify(password, passwordHash);
+    }
+
+    public boolean verify(String code) {
+        if(!verificationRequired) return false;
+
+        // TODO use hashed code
+        //return Password.verify(code, verificationHash);
+        return code.equals(verificationHash);
     }
 
     /**
@@ -41,20 +53,36 @@ public class User extends UserSanitised {
      * @return If the old password can be authenticated and the keyring password is successfully changed, true.
      */
     public boolean changePassword(String oldPassword, String newPassword) {
-        boolean result = true;
+        if (verificationRequired != null && verificationRequired) {
+            if (verify(oldPassword)) {
+                verificationRequired = false;
+                verificationHash = "";
+                if(keyring == null) {
+                    keyring = Keyring.generate(newPassword);
+                } else if (!keyring.changePassword(oldPassword, newPassword)) {
+                    logInfo("Unable to change keyring password").log();
+                    return false;
+                }
+                passwordHash = Password.hash(newPassword);
+                return true;
+            }
+            logInfo("verification failed").log();
+            return false;
+        }
 
         if (authenticate(oldPassword)) {
             if (keyring.changePassword(oldPassword, newPassword)) {
                 passwordHash = Password.hash(newPassword);
-                result = true;
             } else {
                 logInfo("Unable to change keyring password").log();
+                return false;
             }
         } else {
             logInfo("Could not authenticate with the old password").log();
+            return false;
         }
 
-        return result;
+        return true;
     }
 
     /**

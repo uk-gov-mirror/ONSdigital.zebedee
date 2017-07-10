@@ -1,6 +1,8 @@
 package com.github.onsdigital.zebedee;
 
 import com.github.onsdigital.zebedee.data.processing.DataIndex;
+import com.github.onsdigital.zebedee.email.service.EmailService;
+import com.github.onsdigital.zebedee.email.service.EmailServiceImpl;
 import com.github.onsdigital.zebedee.model.Collections;
 import com.github.onsdigital.zebedee.model.Content;
 import com.github.onsdigital.zebedee.model.KeyringCache;
@@ -70,6 +72,7 @@ public class ZebedeeConfiguration {
     private SessionsService sessionsService;
     private DataIndex dataIndex;
     private PermissionsStore permissionsStore;
+    private EmailService emailService;
 
     private static Path createDir(Path root, String dirName) throws IOException {
         Path dir = root.resolve(dirName);
@@ -139,12 +142,24 @@ public class ZebedeeConfiguration {
 
         this.collections = new Collections(collectionsPath, permissionsService, published);
 
+        // TODO configuration
+        this.emailService = new EmailServiceImpl(
+                "http://localhost:8081/florence",
+                "localhost",
+                1025,
+                "username",
+                "password",
+                "florence@localhost",
+                "Florence"
+        );
+
         this.usersService = UsersServiceImpl.getInstance(
                 new UserStoreFileSystemImpl(this.usersPath),
                 collections,
                 permissionsService,
                 applicationKeys,
-                keyringCache)
+                keyringCache,
+                emailService)
         ;
 
         logDebug(LOG_PREFIX + "ZebedeeConfiguration creation complete.").log();
@@ -254,6 +269,8 @@ public class ZebedeeConfiguration {
     public TeamsService getTeamsService() {
         return this.teamsService;
     }
+
+    public EmailService getEmailService() { return this.emailService; }
 
     public UsersService getUsersService() {
         return this.usersService;

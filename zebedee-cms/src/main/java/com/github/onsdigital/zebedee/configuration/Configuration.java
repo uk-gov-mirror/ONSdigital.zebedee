@@ -118,6 +118,10 @@ public class Configuration {
         return StringUtils.defaultIfBlank(getValue("db_audit_url"), "");
     }
 
+    public static Boolean isVerifyGracePeriodEnabled() {
+        return Boolean.valueOf(StringUtils.defaultIfBlank(getValue("VERIFY_GRACE_PERIOD"), "false"));
+    }
+
     /**
      * Gets a configured value for the given key from either the system
      * properties or an environment variable.

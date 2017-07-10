@@ -8,21 +8,22 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
 /**
  * Represents a reduced view of user account, suitable for sending to clients via the API.
  * NB this record intentionally does not contain any authentication, encryption or permission-related information.
- * This is purely acconut information.
+ * This is purely account information.
  */
 public class UserSanitised {
 
     protected String name;
     protected String email;
+    protected String verificationEmail;
 
     /**
      * This field is {@link Boolean} rather than <code>boolean</code> so that it can be <code>null</code> in an update message.
      * This ensures the value won't change unless explicitly specified.
      */
     protected Boolean inactive;
-    protected Boolean temporaryPassword;
     protected String lastAdmin;
     protected AdminOptions adminOptions;
+    protected Boolean verifiedEmail;
 
     public String getName() {
         return name;
@@ -40,20 +41,20 @@ public class UserSanitised {
         this.email = email;
     }
 
+    public String getVerificationEmail() {
+        return verificationEmail;
+    }
+
+    public void setVerificationEmail(String verificationEmail) {
+        this.verificationEmail = verificationEmail;
+    }
+
     public Boolean getInactive() {
         return inactive;
     }
 
     public void setInactive(Boolean inactive) {
         this.inactive = inactive;
-    }
-
-    public Boolean getTemporaryPassword() {
-        return temporaryPassword;
-    }
-
-    public void setTemporaryPassword(Boolean temporaryPassword) {
-        this.temporaryPassword = temporaryPassword;
     }
 
     public String getLastAdmin() {
@@ -70,6 +71,14 @@ public class UserSanitised {
 
     public void setAdminOptions(AdminOptions adminOptions) {
         this.adminOptions = adminOptions;
+    }
+
+    public Boolean getVerifiedEmail() {
+        return verifiedEmail;
+    }
+
+    public void setVerifiedEmail(Boolean verifiedEmail) {
+        this.verifiedEmail = verifiedEmail;
     }
 
     @Override
@@ -90,6 +99,8 @@ public class UserSanitised {
                 .append(email, that.email)
                 .append(inactive, that.inactive)
                 .append(lastAdmin, that.lastAdmin)
+                .append(verifiedEmail, that.verifiedEmail)
+                .append(verificationEmail, that.verificationEmail)
                 .isEquals();
     }
 
@@ -100,6 +111,8 @@ public class UserSanitised {
                 .append(email)
                 .append(inactive)
                 .append(lastAdmin)
+                .append(verifiedEmail)
+                .append(verificationEmail)
                 .toHashCode();
     }
 }

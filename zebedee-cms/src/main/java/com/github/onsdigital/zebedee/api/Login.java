@@ -2,6 +2,7 @@ package com.github.onsdigital.zebedee.api;
 
 import com.github.davidcarboni.restolino.framework.Api;
 import com.github.onsdigital.zebedee.audit.Audit;
+import com.github.onsdigital.zebedee.configuration.Configuration;
 import com.github.onsdigital.zebedee.exceptions.BadRequestException;
 import com.github.onsdigital.zebedee.exceptions.NotFoundException;
 import com.github.onsdigital.zebedee.json.Credentials;
@@ -27,7 +28,7 @@ public class Login {
 
     private static final String LOGIN_SUCCESS_MSG = "Florence login success";
     private static final String LOGIN_AUTH_FAILURE_MSG = "Login authentication failure";
-    private static final String PASSWORD_CHANGE_REQUIRED_MSG = "Florence password change required";
+    private static final String EMAIL_VERIFICATION_REQUIRED_MSG = "Email verification required";
 
     /**
      * Wrap static method calls to obtain service in function makes testing easier - class member can be
@@ -71,11 +72,15 @@ public class Login {
         usersServiceSupplier.getService().migrateToEncryption(user, credentials.password);
         usersServiceSupplier.getService().removeStaleCollectionKeys(user.getEmail());
 
-        if (BooleanUtils.isTrue(user.getTemporaryPassword())) {
+        if (BooleanUtils.isNotTrue(user.getVerifiedEmail()) && !Configuration.isVerifyGracePeriodEnabled()) {
+            // This happens when the user has an unverified email address, a valid password,
+            // and the verification grace period is disabled.
+            // In the typical user journey, the password will be blank when email verification
+            // is required, so reaching this point is not possible.
             response.setStatus(HttpStatus.EXPECTATION_FAILED_417);
-            Audit.Event.LOGIN_PASSWORD_CHANGE_REQUIRED.parameters().host(request).user(credentials.email).log();
-            ZebedeeLogBuilder.logInfo(PASSWORD_CHANGE_REQUIRED_MSG).user(credentials.email).log();
-            return "Password change required";
+            Audit.Event.LOGIN_EMAIL_VERIFICATION_REQUIRED.parameters().host(request).user(credentials.email).log();
+            ZebedeeLogBuilder.logInfo(EMAIL_VERIFICATION_REQUIRED_MSG).user(credentials.email).log();
+            return "Email verification required";
         } else {
             Audit.Event.LOGIN_SUCCESS.parameters().host(request).user(credentials.email).log();
             ZebedeeLogBuilder.logInfo(LOGIN_SUCCESS_MSG).user(credentials.email).log();

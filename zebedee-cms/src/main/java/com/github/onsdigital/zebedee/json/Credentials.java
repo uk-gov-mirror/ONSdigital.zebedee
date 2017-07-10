@@ -13,6 +13,11 @@ public class Credentials {
      */
     public String oldPassword;
 
+    /**
+     * Optional - only needed when creating the first password.
+     */
+    public String verify;
+
     public String getEmail() {
         return email;
     }
@@ -35,5 +40,13 @@ public class Credentials {
 
     public void setOldPassword(String oldPassword) {
         this.oldPassword = oldPassword;
+    }
+
+    public String getVerify() {
+        return verify;
+    }
+
+    public void setVerify(String verify) {
+        this.verify = verify;
     }
 }

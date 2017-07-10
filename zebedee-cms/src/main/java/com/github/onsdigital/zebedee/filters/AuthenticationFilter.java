@@ -21,6 +21,7 @@ public class AuthenticationFilter implements Filter {
 	 */
 	private static final ImmutableList<Class> NO_AUTH_REQUIRED = new ImmutableList.Builder<Class>()
 			.add(Login.class)
+			.add(Verify.class)
 			.add(Password.class)
 			.add(CsdbKey.class)
 			.add(CsdbNotify.class)

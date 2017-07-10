@@ -1,6 +1,7 @@
 package com.github.onsdigital.zebedee;
 
 import com.github.onsdigital.zebedee.data.processing.DataIndex;
+import com.github.onsdigital.zebedee.email.service.EmailService;
 import com.github.onsdigital.zebedee.exceptions.BadRequestException;
 import com.github.onsdigital.zebedee.exceptions.DeleteContentRequestDeniedException;
 import com.github.onsdigital.zebedee.exceptions.NotFoundException;
@@ -69,6 +70,7 @@ public class Zebedee {
     private final Path publishedContentPath;
     private final Path path;
     private final PermissionsService permissionsService;
+    private final EmailService emailService;
 
     private final UsersService usersService;
     private final TeamsService teamsService;
@@ -102,6 +104,7 @@ public class Zebedee {
         this.teamsService = configuration.getTeamsService();
         this.usersService = configuration.getUsersService();
         this.verificationAgent = configuration.getVerificationAgent(isVerificationEnabled(), this);
+        this.emailService = configuration.getEmailService();
     }
 
     /**
@@ -261,10 +264,12 @@ public class Zebedee {
         // Create a session
         Session session = sessionsService.create(user);
 
-        // Unlock and cache keyring
-        user.keyring().unlock(credentials.password);
-        applicationKeys.populateCacheFromUserKeyring(user.keyring());
-        keyringCache.put(user, session);
+        if(credentials.getVerify() == null || credentials.getVerify().length() == 0) {
+            // Unlock and cache keyring
+            user.keyring().unlock(credentials.password);
+            applicationKeys.populateCacheFromUserKeyring(user.keyring());
+            keyringCache.put(user, session);
+        }
 
         // Return a session
         return session;
@@ -321,4 +326,6 @@ public class Zebedee {
     public UsersService getUsersService() {
         return usersService;
     }
+
+    public EmailService getEmailService() { return emailService; }
 }

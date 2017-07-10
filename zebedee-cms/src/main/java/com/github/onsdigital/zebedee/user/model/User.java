@@ -4,6 +4,8 @@ import com.github.davidcarboni.cryptolite.Password;
 import com.github.onsdigital.zebedee.json.Keyring;
 import org.apache.commons.lang3.BooleanUtils;
 
+import java.util.UUID;
+
 import static com.github.onsdigital.zebedee.logging.ZebedeeLogBuilder.logInfo;
 
 /**
@@ -19,6 +21,11 @@ public class User extends UserSanitised {
     private String passwordHash;
     private Keyring keyring;
 
+    // The verificationHash is a hash (like {@link #passwordHash})
+    // but of the verification code used to validate a
+    // users {@link #verificationEmail} address
+    private String verificationHash;
+
     /**
      * Constructor for deserialisation.
      */
@@ -33,6 +40,33 @@ public class User extends UserSanitised {
      */
     public boolean authenticate(String password) {
         return Password.verify(password, passwordHash);
+    }
+
+    /**
+     * Verifies the users email address.
+     * @param code The user's verification code.
+     * @return If the given code can be verified against {@link #verificationHash}, true.
+     */
+    public boolean verify(String code) {
+        if (Password.verify(code, verificationHash)) {
+            verificationHash = "";
+            verifiedEmail = true;
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Creates a verification code and stores its hash
+     * Also resets {@link #verifiedEmail} to false.
+     * @return The verification code in plaintext
+     */
+    public String createVerificationCode() {
+        String code = UUID.randomUUID().toString();
+        verificationHash = Password.hash(code);
+        verifiedEmail = false;
+        return code;
     }
 
     /**

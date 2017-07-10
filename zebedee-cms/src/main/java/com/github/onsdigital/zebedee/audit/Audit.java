@@ -114,7 +114,16 @@ public class Audit {
          */
         DELETE_MARKER_ADDED("Delete Marker added to content."),
 
-        DELETE_MARKER_REMOVED("Delete marker removed from content.");
+        DELETE_MARKER_REMOVED("Delete marker removed from content."),
+
+        /**
+         * Email verification
+         */
+        LOGIN_EMAIL_VERIFICATION_REQUIRED("Email verification required"),
+
+        VERIFY_CODE_INVALID("Verification code invalid"),
+
+        VERIFY_CODE_VALID("Verification code OK");
 
         /**
          * The event description.

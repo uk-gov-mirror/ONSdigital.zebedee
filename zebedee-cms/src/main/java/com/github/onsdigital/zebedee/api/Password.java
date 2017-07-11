@@ -46,7 +46,7 @@ public class Password {
     @POST
     public String setPassword(HttpServletRequest request, HttpServletResponse response, Credentials credentials) throws IOException, UnauthorizedException, BadRequestException, NotFoundException {
         // If verifying, ignore whether the user is logged in
-        if(credentials.getVerify().length() > 0) {
+        if(credentials.getVerify() != null && credentials.getVerify().length() > 0) {
             User user = usersServiceSupplier.getService().getUserByEmail(credentials.email);
             Session session = Root.zebedee.openSession(credentials);
 

@@ -62,10 +62,13 @@ public class User extends UserSanitised {
      * Also resets {@link #verifiedEmail} to false.
      * @return The verification code in plaintext
      */
-    public String createVerificationCode() {
+    public String createVerificationCode(boolean resetPassword) {
         String code = UUID.randomUUID().toString();
         verificationHash = Password.hash(code);
         verifiedEmail = false;
+        if(resetPassword) {
+            passwordHash = "";
+        }
         return code;
     }
 

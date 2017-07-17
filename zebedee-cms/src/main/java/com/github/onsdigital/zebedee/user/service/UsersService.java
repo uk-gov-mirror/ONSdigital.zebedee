@@ -46,7 +46,7 @@ public interface UsersService {
      * @throws NotFoundException
      * @throws BadRequestException
      */
-    void removeStaleCollectionKeys(String userEmail) throws IOException, NotFoundException, BadRequestException;
+    void removeStaleCollectionKeys(String userEmail) throws IOException, NotFoundException, BadRequestException, EmailException;
 
     /**
      * Add a collection key to a {@link User#keyring}
@@ -162,7 +162,7 @@ public interface UsersService {
      * @throws BadRequestException   unexpected problem updating the user.
      */
     User update(Session session, User user, User updatedUser) throws IOException, UnauthorizedException,
-            NotFoundException, BadRequestException;
+            NotFoundException, BadRequestException, EmailException;
 
     /**
      * Delete a {@link User}.
@@ -180,7 +180,7 @@ public interface UsersService {
     /**
      * Migrate the {@link User} to use collection key encryption. WE THINK THIS IS NO LONGER REQUIRED.
      */
-    void migrateToEncryption(User user, String password) throws IOException;
+    void migrateToEncryption(User user, String password) throws IOException, EmailException;
 
     /**
      * Update a {@link User#keyring}.

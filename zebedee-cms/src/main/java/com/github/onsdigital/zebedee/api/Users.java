@@ -111,7 +111,7 @@ public class Users {
      */
     @PUT
     public UserSanitised update(HttpServletRequest request, HttpServletResponse response, User updatedUser) throws
-            IOException, NotFoundException, BadRequestException, UnauthorizedException {
+            IOException, NotFoundException, BadRequestException, UnauthorizedException, EmailException {
         Session session = Root.zebedee.getSessionsService().get(request);
 
         String email = request.getParameter(EMAIL_PARAM);

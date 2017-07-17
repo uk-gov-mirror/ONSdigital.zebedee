@@ -148,7 +148,7 @@ public class Root {
             for (User user : zebedee.getUsersService().list()) {
                 zebedee.getUsersService().removeStaleCollectionKeys(user.getEmail());
             }
-        } catch (IOException | NotFoundException | BadRequestException e) {
+        } catch (IOException | NotFoundException | BadRequestException | EmailException e) {
             logError(e).log();
         }
     }

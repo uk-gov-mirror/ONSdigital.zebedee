@@ -19,6 +19,7 @@ import com.github.onsdigital.zebedee.user.model.UserList;
 import com.github.onsdigital.zebedee.user.store.UserStore;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.mail.Email;
 import org.apache.commons.mail.EmailException;
 
 import javax.crypto.SecretKey;
@@ -252,7 +253,7 @@ public class UsersServiceImpl implements UsersService {
 
     @Override
     public void removeStaleCollectionKeys(String userEmail) throws
-            IOException, NotFoundException, BadRequestException {
+            IOException, NotFoundException, BadRequestException, EmailException {
         lock.lock();
         try {
             User user = getUserByEmail(userEmail);
@@ -302,10 +303,9 @@ public class UsersServiceImpl implements UsersService {
         }
     }
 
-
     @Override
     public User update(Session session, User user, User updatedUser) throws IOException, UnauthorizedException,
-            NotFoundException, BadRequestException {
+            NotFoundException, BadRequestException, EmailException {
         if (!permissionsService.isAdministrator(session.getEmail())) {
             throw new UnauthorizedException("Administrator permissionsServiceImpl required");
         }
@@ -339,7 +339,7 @@ public class UsersServiceImpl implements UsersService {
 
     // TODO don't think this is required anymore.
     @Override
-    public void migrateToEncryption(User user, String password) throws IOException {
+    public void migrateToEncryption(User user, String password) throws IOException, EmailException {
 
         // Update this user if necessary:
         migrateUserToEncryption(user, password);
@@ -402,7 +402,7 @@ public class UsersServiceImpl implements UsersService {
                 // Generate the code first
                 String code = "";
                 if(!lastAdmin.equals(SYSTEM_USER)) {
-                    code = result.createVerificationCode();
+                    code = result.createVerificationCode(false);
                 }
 
                 // Store the user
@@ -420,7 +420,7 @@ public class UsersServiceImpl implements UsersService {
         }
     }
 
-    private boolean migrateUserToEncryption(User user, String password) throws IOException {
+    private boolean migrateUserToEncryption(User user, String password) throws IOException, EmailException {
         boolean result = false;
         lock.lock();
         try {
@@ -442,12 +442,19 @@ public class UsersServiceImpl implements UsersService {
         }
     }
 
-    private User update(User user, User updatedUser, String lastAdmin) throws IOException {
+    private User update(User user, User updatedUser, String lastAdmin) throws IOException, EmailException {
         lock.lock();
         try {
             if (user != null) {
                 if (updatedUser.getName() != null && updatedUser.getName().length() > 0) {
                     user.setName(updatedUser.getName());
+                }
+                boolean requireVerification = false;
+                if (updatedUser.getVerificationEmail() != null && updatedUser.getVerificationEmail().length() > 0) {
+                    if(!updatedUser.getVerificationEmail().equals(user.getVerificationEmail())) {
+                        requireVerification = true;
+                        user.setVerificationEmail(updatedUser.getVerificationEmail());
+                    }
                 }
                 // Create adminOptions object if user doesn't already have it
                 if (user.getAdminOptions() == null) {
@@ -461,8 +468,20 @@ public class UsersServiceImpl implements UsersService {
                     }
                 }
 
+                // Generate the code first
+                String code = "";
+                if(requireVerification) {
+                    code = user.createVerificationCode(true);
+                }
+
                 user.setLastAdmin(lastAdmin);
                 userStore.save(user);
+
+                // And finally send the email
+                // (this prevents the verification email being sent if the user save fails)
+                if(requireVerification && code.length() > 0) {
+                    emailService.SendCreateUserVerificationEmail(user, code);
+                }
             }
             return user;
         } finally {

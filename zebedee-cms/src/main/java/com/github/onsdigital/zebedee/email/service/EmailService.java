@@ -11,4 +11,7 @@ public interface EmailService {
     // Sends a verification email to a user
     void SendCreateUserVerificationEmail(User user, String verificationCode) throws EmailException;
 
+    // Sends a password reset email to a user
+    void SendPasswordResetEmail(User user, String verificationCode) throws EmailException;
+
 }

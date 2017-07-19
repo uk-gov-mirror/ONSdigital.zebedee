@@ -25,6 +25,9 @@ public class EmailServiceImpl implements EmailService {
     protected static String verificationEmailSubject = "Please verify your email address";
     protected static String createUserVerificationEmailTemplate = "Dear %s\n\nA Florence account has been created for %s.\n\nPlease use the following link to verify your email address:\n\n%s\n\nThank you,\nFlorence Admin";
 
+    protected static String passwordResetEmailSubject = "Reset your password";
+    protected static String passwordResetEmailTemplate = "Dear %s\n\nA password reset has been requested for %s.\n\nPlease use the following link to create a new password:\n\n%s\n\nThank you,\nFlorence Admin";
+
     public EmailServiceImpl(String florenceURL, String hostname, Integer port, String username, String password, String senderEmail, String senderName) {
         this.hostname = hostname;
         this.port = port;
@@ -39,6 +42,12 @@ public class EmailServiceImpl implements EmailService {
     public void SendCreateUserVerificationEmail(User user, String verificationCode) throws EmailException {
         String message = String.format(createUserVerificationEmailTemplate , user.getName(), user.getEmail(), florenceURL + String.format("/verify?email=%s&code=%s", user.getEmail(), verificationCode));
         sendEmail(user.getVerificationEmail(), user.getName(), verificationEmailSubject, message);
+    }
+
+    @Override
+    public void SendPasswordResetEmail(User user, String verificationCode) throws EmailException {
+        String message = String.format(passwordResetEmailTemplate , user.getName(), user.getEmail(), florenceURL + String.format("/verify?email=%s&code=%s", user.getEmail(), verificationCode));
+        sendEmail(user.getVerificationEmail(), user.getName(), passwordResetEmailSubject, message);
     }
 
     protected void sendEmail(String recipientEmail, String recipientName, String subject, String message) throws EmailException {

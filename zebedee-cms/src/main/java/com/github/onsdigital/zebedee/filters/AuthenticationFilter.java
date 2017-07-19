@@ -23,6 +23,7 @@ public class AuthenticationFilter implements Filter {
 			.add(Login.class)
 			.add(Verify.class)
 			.add(Password.class)
+			.add(PasswordReset.class)
 			.add(CsdbKey.class)
 			.add(CsdbNotify.class)
 			.add(ReIndex.class)

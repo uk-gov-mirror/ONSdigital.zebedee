@@ -489,6 +489,17 @@ public class UsersServiceImpl implements UsersService {
         }
     }
 
+    public void resetPassword(User user) throws IOException, EmailException {
+        lock.lock();
+        try {
+            String code = user.createVerificationCode(true);
+            userStore.save(user);
+            emailService.SendPasswordResetEmail(user, code);
+        } finally {
+            lock.unlock();
+        }
+    }
+
     private String normalise(String email) {
         return StringUtils.lowerCase(StringUtils.trim(email));
     }

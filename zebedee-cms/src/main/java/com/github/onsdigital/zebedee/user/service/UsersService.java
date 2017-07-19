@@ -143,6 +143,15 @@ public interface UsersService {
             BadRequestException, NotFoundException;
 
     /**
+     * Resets the users password and sends a verification email
+     *
+     * @param user the user
+     * @throws IOException unexpected problem resetting the users password.
+     * @throws EmailException sending verification email failed.
+     */
+    void resetPassword(User user) throws IOException, EmailException;
+
+    /**
      * List all of the users.
      *
      * @throws IOException unexpected list the system users.

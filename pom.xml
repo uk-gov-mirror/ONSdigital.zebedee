@@ -17,13 +17,6 @@
         <url>http://onsdigital.github.io/</url>
     </organization>
 
-    <scm>
-        <url>https://github.com/carboni/zebedee</url>
-        <connection>scm:git:git://github.com/Carboni/zebedee.git</connection>
-        <developerConnection>scm:git:git@github.com:Carboni/zebedee.git</developerConnection>
-        <tag>HEAD</tag>
-    </scm>
-
     <properties>
         <java.version>1.8</java.version>
         <encoding>UTF-8</encoding>
@@ -36,6 +29,18 @@
             <id>splunk-artifactory</id>
             <name>Splunk Releases</name>
             <url>http://splunk.artifactoryonline.com/splunk/ext-releases-local</url>
+        </repository>
+        <repository>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <id>central</id>
+            <name>Central Repository</name>
+            <url>http://repo.maven.apache.org/maven2</url>
+        </repository>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
         </repository>
     </repositories>
 
@@ -103,11 +108,10 @@
     <dependencyManagement>
         <dependencies>
 
-            <!-- Main -->
             <dependency>
-                <groupId>com.github.davidcarboni</groupId>
+                <groupId>com.github.ONSdigital</groupId>
                 <artifactId>restolino</artifactId>
-                <version>0.1.14</version>
+                <version>master-SNAPSHOT</version>
             </dependency>
 
             <!-- Cryptography -->

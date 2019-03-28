@@ -1,13 +1,12 @@
 package com.github.onsdigital.zebedee.util.mertics.service;
 
-import com.github.davidcarboni.restolino.framework.HttpMethod;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.onsdigital.zebedee.util.mertics.AbstractMetricsTest;
 import com.github.onsdigital.zebedee.util.mertics.client.SplunkClient;
 import com.github.onsdigital.zebedee.util.mertics.client.SplunkRequest;
 import com.github.onsdigital.zebedee.util.mertics.events.MetricsType;
 import com.github.onsdigital.zebedee.util.mertics.events.SplunkEvent;
 import com.google.common.collect.ImmutableMap;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -61,7 +60,7 @@ public class SplunkMetricsServiceImplTest extends AbstractMetricsTest {
 
     @Test
     public void shouldRecordRequestTime() throws Exception {
-        when(requestMock.getMethod()).thenReturn(HttpMethod.POST.toString());
+        when(requestMock.getMethod()).thenReturn("POST");
         when(requestMock.getRequestURI()).thenReturn("/data");
         when(requestMock.getParameter("uri")).thenReturn("/");
 
@@ -92,7 +91,7 @@ public class SplunkMetricsServiceImplTest extends AbstractMetricsTest {
 
     @Test
     public void shouldRecordError() {
-        when(requestMock.getMethod()).thenReturn(HttpMethod.POST.toString());
+        when(requestMock.getMethod()).thenReturn("POST");
         when(requestMock.getRequestURI()).thenReturn("/data");
         when(requestMock.getParameter("uri")).thenReturn("/");
 

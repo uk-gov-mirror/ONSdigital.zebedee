@@ -1,7 +1,6 @@
 package com.github.onsdigital.zebedee.reader.api.endpoint;
 
 import com.github.davidcarboni.restolino.framework.Api;
-import com.github.onsdigital.logging.v2.DPLogger;
 import com.github.onsdigital.zebedee.content.base.Content;
 import com.github.onsdigital.zebedee.content.page.base.Page;
 import com.github.onsdigital.zebedee.content.page.base.PageType;
@@ -67,7 +66,6 @@ public class ResolveDatasets {
             }
 
             List<DatasetSummary> summaries = resolve(request, handler);
-            info().data(PAGE_URI, pageURI).log("resolve dataset summaries request completed successfully");
             responseWriter.sendResponse(summaries, response);
         } catch (BadRequestException ex) {
             responseWriter.sendBadRequest(ex, request, response);

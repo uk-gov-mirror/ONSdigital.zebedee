@@ -1,4 +1,4 @@
-package com.github.onsdigital.zebedee.reader.api.filter;
+package com.github.onsdigital.zebedee.reader.api.filter.before;
 
 import com.github.davidcarboni.restolino.framework.PreFilter;
 import com.github.onsdigital.zebedee.util.mertics.service.MetricsService;

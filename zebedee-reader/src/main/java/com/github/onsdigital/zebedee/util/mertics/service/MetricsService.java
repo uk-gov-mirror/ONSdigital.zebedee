@@ -1,5 +1,6 @@
 package com.github.onsdigital.zebedee.util.mertics.service;
 
+import com.github.onsdigital.zebedee.reader.api.filter.before.RequestMetricsFilter;
 import com.github.onsdigital.zebedee.util.mertics.client.SplunkClient;
 
 import javax.servlet.http.HttpServletRequest;
@@ -40,7 +41,7 @@ public abstract class MetricsService {
 
     /**
      * Call this to capture a request for processing later - see
-     * {@link com.github.onsdigital.zebedee.reader.api.filter.RequestMetricsFilter}
+     * {@link RequestMetricsFilter}
      *
      * @param request the request to capture.
      */

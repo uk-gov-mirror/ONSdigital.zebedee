@@ -45,9 +45,6 @@ import static com.github.onsdigital.zebedee.search.configuration.SearchConfigura
 import static org.apache.commons.lang3.StringUtils.isEmpty;
 import static org.apache.commons.lang3.StringUtils.startsWith;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 import dp.api.dataset.DatasetAPIClient;
 import dp.api.dataset.model.DatasetMetadata;
 import dp.api.dataset.exception.DatasetAPIException;
@@ -80,7 +77,7 @@ public class Indexer {
     private Indexer() {
     }
 
-    public static Indexer getInstance() throws URISyntaxException {
+    public static Indexer getInstance() {
         return instance;
     }
 
@@ -440,6 +437,7 @@ public class Indexer {
         return indexRequestBuilder;
     }
 
+    // TODO - investigate, we may need a from-mongo version of this for cmd datasets
     private void indexSingleContent(String indexName, Page page) throws URISyntaxException, IOException {
         List<String> terms = resolveSearchTerms(page.getUri().toString());
         searchUtils.createDocument(indexName, page.getType().toString(), page.getUri().toString(), serialise(toSearchDocument(page, terms)));

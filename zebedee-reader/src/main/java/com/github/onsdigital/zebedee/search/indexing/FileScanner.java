@@ -17,6 +17,8 @@ import static com.github.onsdigital.zebedee.search.indexing.SearchBoostTermsReso
 import static com.github.onsdigital.zebedee.util.PathUtils.toRelativeUri;
 import static org.apache.commons.lang3.StringUtils.isEmpty;
 
+import static com.github.onsdigital.logging.v2.event.SimpleEvent.info;
+
 /**
  * Searches the file system
  */
@@ -40,7 +42,25 @@ public class FileScanner {
         }
 
         List<Document> fileNames = new ArrayList<>();
-        return getFileNames(fileNames, dir, null);
+        List<Document> allFileNames = getFileNames(fileNames, dir, null);
+
+        /*
+        TODO - SPIKE CODE
+
+        I'm just hard coding a single cmd dataset url here. To do it properly we'll need the
+        dataset api client to return a list of all published datasets and add the additional
+        documents from that.
+
+        Note 1 - we may need to do something clever for search terms but at the moment they don't appear to be
+        being used.
+
+        Note 2 - we're probably better off using 'datasets/{dataset}'and pulling the version url from that
+        response (its needed later), shouldn't be too hard.
+         */
+
+        allFileNames.add(new Document("/datasets/suicides-in-the-uk/editions/time-series/versions/1", null));
+
+        return allFileNames;
     }
 
     /**
@@ -82,6 +102,9 @@ public class FileScanner {
                     if (isDataFile(fullPath)) {
                         List<String> terms = getSearchTermResolver().getTerms(uri);
                         searchTerms.add(terms);
+
+                        //info().data("searchTerms", searchTerms).data("uri", uri).log("updating elastic search");
+
                         fileNames.add(new Document(uri, searchTerms));
                         searchTerms.remove(terms);
                     }

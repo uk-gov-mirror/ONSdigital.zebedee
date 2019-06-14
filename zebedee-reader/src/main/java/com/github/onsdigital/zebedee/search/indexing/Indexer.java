@@ -1,6 +1,7 @@
 package com.github.onsdigital.zebedee.search.indexing;
 
 import com.github.onsdigital.zebedee.content.page.base.Page;
+import com.github.onsdigital.zebedee.content.page.base.PageDescription;
 import com.github.onsdigital.zebedee.content.page.base.PageType;
 import com.github.onsdigital.zebedee.content.partial.Link;
 import com.github.onsdigital.zebedee.content.util.ContentUtil;
@@ -10,6 +11,7 @@ import com.github.onsdigital.zebedee.reader.ZebedeeReader;
 import com.github.onsdigital.zebedee.search.client.ElasticSearchClient;
 import com.github.onsdigital.zebedee.search.model.SearchDocument;
 import com.github.onsdigital.zebedee.util.URIUtils;
+import dp.api.dataset.model.DatasetVersion;
 import org.apache.commons.io.IOUtils;
 import org.elasticsearch.action.bulk.BulkItemResponse;
 import org.elasticsearch.action.bulk.BulkProcessor;
@@ -27,8 +29,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.NoSuchFileException;
+import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -40,6 +45,16 @@ import static com.github.onsdigital.zebedee.search.configuration.SearchConfigura
 import static org.apache.commons.lang3.StringUtils.isEmpty;
 import static org.apache.commons.lang3.StringUtils.startsWith;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import dp.api.dataset.DatasetAPIClient;
+import dp.api.dataset.model.DatasetMetadata;
+import dp.api.dataset.exception.DatasetAPIException;
+
+import com.github.onsdigital.zebedee.content.partial.Contact;
+import java.text.SimpleDateFormat;
+
 public class Indexer {
     private final static String DEPARTMENTS_INDEX = "departments";
     private final static String DEPARTMENT_TYPE = "departments";
@@ -50,14 +65,26 @@ public class Indexer {
     private ElasticSearchUtils searchUtils = new ElasticSearchUtils(client);
     private ZebedeeReader zebedeeReader = new ZebedeeReader();
 
+    private static final String DATASET_API_URL = "http://localhost:22000";
+    private static final String DATASET_API_AUTH_TOKEN = "FD0108EA-825D-411C-9B1D-41EF7727F465";
+    private static final String SERVICE_AUTH_TOKEN = "15C0E4EE-777F-4C61-8CDB-2898CEB34657";
+
+    // TODO - getting these variables from env
+    public DatasetAPIClient getDatasetClient() throws URISyntaxException {
+        return new DatasetAPIClient(
+                DATASET_API_URL,
+                DATASET_API_AUTH_TOKEN,
+                SERVICE_AUTH_TOKEN);
+    }
+
     private Indexer() {
     }
 
-    public static Indexer getInstance() {
+    public static Indexer getInstance() throws URISyntaxException {
         return instance;
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws URISyntaxException {
         try {
             Indexer.getInstance().reload();
         } catch (IOException e) {
@@ -68,7 +95,7 @@ public class Indexer {
     /**
      * Initializes search index and aliases, it should be run on application start.
      */
-    public void reload() throws IOException {
+    public void reload() throws IOException, URISyntaxException {
         if (LOCK.tryLock()) {
             try {
                 lockGlobal();//lock in cluster
@@ -105,16 +132,16 @@ public class Indexer {
         }
     }
 
-    public boolean isIndexAvailable(String indexName) {
+    public boolean isIndexAvailable(String indexName) throws URISyntaxException {
         return searchUtils.isIndexAvailable(indexName);
     }
 
-    private void doLoad(String indexName) throws IOException {
+    private void doLoad(String indexName) throws URISyntaxException, IOException {
         loadDepartments();
         loadContent(indexName);
     }
 
-    private void loadContent(String indexName) throws IOException {
+    private void loadContent(String indexName) throws IOException, URISyntaxException {
         long start = System.currentTimeMillis();
         info().data("index", indexName).log("triggering elastic search reindex");
 
@@ -125,7 +152,7 @@ public class Indexer {
                 .log("elastic search reindex complete");
     }
 
-    private void loadDepartments() throws IOException {
+    private void loadDepartments() throws IOException, URISyntaxException {
 
         if (isIndexAvailable(DEPARTMENTS_INDEX)) {
             searchUtils.deleteIndex(DEPARTMENTS_INDEX);
@@ -174,7 +201,7 @@ public class Indexer {
      * @param uri
      */
 
-    public void reloadContent(String uri) throws IOException {
+    public void reloadContent(String uri) throws IOException, URISyntaxException {
         try {
             info().data("uri", uri).log("elastic search: triggering reindex for uri");
             long start = System.currentTimeMillis();
@@ -214,7 +241,7 @@ public class Indexer {
     /**
      * Resolves search terms for a single document
      */
-    private List<String> resolveSearchTerms(String uri) throws IOException {
+    private List<String> resolveSearchTerms(String uri) throws URISyntaxException, IOException {
         if (uri == null) {
             return null;
         }
@@ -238,7 +265,7 @@ public class Indexer {
         termsList.addAll(terms);
     }
 
-    private void indexDocuments(String indexName) throws IOException {
+    private void indexDocuments(String indexName) throws URISyntaxException, IOException {
         index(indexName, new FileScanner().scan());
     }
 
@@ -249,19 +276,61 @@ public class Indexer {
      * @param documents
      * @throws IOException
      */
-    private void index(String indexName, List<Document> documents) throws IOException {
+    private void index(String indexName, List<Document> documents) throws IOException, URISyntaxException {
+
+        /*
+        TODO - SPIKE NOTES
+
+        For each document we're checking if it's a cmd dataset (currently hard coded, but done properly its probably a regex
+        against the url).
+
+        The searchDocument (the object that generates the request to elasticSearch) is then either build via the existing method
+        (renamed to the hefty `prepareJsonPageContentIndexRequest`) or via a mongo specific method currently called
+        `prepareMongoDatasetContentIndexRequest`.
+
+        Could do with a refactor to lose some repetition.
+        */
+
+        // TODO - handler the URISyntaxException
+        DatasetAPIClient datasetApiClient = getDatasetClient();
+
         try (BulkProcessor bulkProcessor = getBulkProcessor()) {
             for (Document document : documents) {
-                try {
-                    IndexRequestBuilder indexRequestBuilder = prepareIndexRequest(indexName, document);
-                    if (indexRequestBuilder == null) {
-                        continue;
-                    }
-                    bulkProcessor.add(indexRequestBuilder.request());
-                } catch (Exception e) {
-                    System.err.println("!!!!!!!!!Failed preparing index for " + document.getUri() + " skipping...");
-                    e.printStackTrace();
+
+                Boolean isCmd = false;
+                // TODO - an actual check
+                if (document.getUri() == "/datasets/suicides-in-the-uk/editions/time-series/versions/1") {
+                    isCmd = true;
                 }
+
+                if (!isCmd) {
+                    // index data.json based content from zebedee
+                    try {
+                        IndexRequestBuilder indexRequestBuilder = prepareJsonPageContentIndexRequest(indexName, document);
+                        if (indexRequestBuilder == null) {
+                            continue;
+                        }
+                        bulkProcessor.add(indexRequestBuilder.request());
+                    } catch (Exception e) {
+                        System.err.println("!!!!!!!!!Failed preparing index for " + document.getUri() + " skipping...");
+                        e.printStackTrace();
+                    }
+                } else {
+
+                    // index structured dataset content from mongo
+                    info().log("attempting to index a cmd dataset");
+                    try {
+                        IndexRequestBuilder indexRequestBuilder = prepareMongoDatasetContentIndexRequest(indexName, document, datasetApiClient);
+                        if (indexRequestBuilder == null) {
+                            continue;
+                        }
+                        bulkProcessor.add(indexRequestBuilder.request());
+                    } catch (Exception e) {
+                        System.err.println("!!!!!!!!!Failed preparing index for " + document.getUri() + " skipping...");
+                        e.printStackTrace();
+                    }
+                }
+
             }
         }
     }
@@ -270,7 +339,7 @@ public class Indexer {
         return zebedeeReader.getPublishedContent(uri);
     }
 
-    private IndexRequestBuilder prepareIndexRequest(String indexName, Document document) throws ZebedeeException, IOException {
+    private IndexRequestBuilder prepareJsonPageContentIndexRequest(String indexName, Document document) throws ZebedeeException, IOException {
         Page page = getPage(document.getUri());
         if (page != null && page.getType() != null) {
             IndexRequestBuilder indexRequestBuilder = searchUtils.prepareIndex(indexName, page.getType().name(), page.getUri().toString());
@@ -280,7 +349,98 @@ public class Indexer {
         return null;
     }
 
-    private void indexSingleContent(String indexName, Page page) throws IOException {
+    private IndexRequestBuilder prepareMongoDatasetContentIndexRequest(String indexName, Document document, DatasetAPIClient datasetApiClient)
+            throws ZebedeeException, IOException, DatasetAPIException {
+
+        /*
+        /TODO - SPIKE CODE
+
+        We're taking the content from the /metadata and /version endpoints on the dataset api and munging it to
+        populate the searchDocument class - from there it'll slot in with the usual index requests.
+
+        Its messy and needs work but I've left notes where I can.
+
+         */
+
+        // we're splitting the full version url, i.e "/datasets/*/editions/*/versions/*"
+        String url = document.getUri();
+        String[] SplitUrl = url.split("/");
+        String datasetID = SplitUrl[2];
+        String edition = SplitUrl[4];
+        String version = SplitUrl[6];
+
+        // TODO - catches
+        DatasetMetadata metadata = datasetApiClient.getDatasetMetadata(datasetID, edition, version);
+        DatasetVersion versionObj = datasetApiClient.getDatasetVersion(datasetID, edition, version);
+
+        // Create a searchDocument object
+        SearchDocument searchDocument = new SearchDocument();
+
+        // Create a contacts object
+        Contact contacts = new Contact();
+
+        // TODO - get this working, the current temp client is wrong
+        //contacts.setEmail(metadata.getContact().getEmail().toString());
+        //contacts.setName(metadata.getContact().getName().toString());
+        //contacts.setTelephone(metadata.getContact().getEmail().toString());
+
+        // Create a pageDescription object
+        PageDescription pageDescription = new PageDescription();
+
+        // Set the release data
+        try {
+            String dateWithoutTime = versionObj.getRelease_date().split( " ")[0];
+            SimpleDateFormat formatter = new SimpleDateFormat("YYYY-MM-DD");
+            Date date = (Date) formatter.parse(dateWithoutTime);
+            pageDescription.setReleaseDate(date);
+        } catch (ParseException e) {
+            // TODO - log error, drop out
+        }
+
+        pageDescription.setTitle(metadata.getTitle().toString());
+        pageDescription.setMetaDescription(metadata.getDescription().toString());
+
+        // TODO - client should return type boolean
+        String nationalStatistic = metadata.getNationalStatistic();
+        if (nationalStatistic == "true") {
+            pageDescription.setNationalStatistic(true);
+        } else {
+            pageDescription.setNationalStatistic(false);
+        }
+        pageDescription.setContact(contacts);
+
+        // TODO - client should return type List<String> directly
+        List<String> keywords = new ArrayList<String>();
+        String[] keyWordsRaw = metadata.getKeywords();
+        for(String keyword : keyWordsRaw){
+            keywords.add(keyword);
+        }
+
+        pageDescription.setKeywords(keywords);
+        searchDocument.setDescription(pageDescription);
+
+        // Set the uri to the top level dataset
+        String datasetUrl = "/datasets/" + datasetID;
+
+        try {
+            URI pageUri = new URI(datasetUrl);
+            searchDocument.setUri(pageUri);
+        } catch (URISyntaxException e) {
+            // TODO - log error, drop out
+        }
+
+        // PageType.x here populates the 'type' field in index
+        searchDocument.setType(PageType.dataset_landing_page);
+
+        // "type" here populates the '_type' field in index
+        // using "dataset_landing_page as it ranks better than dataset
+        IndexRequestBuilder indexRequestBuilder = searchUtils.prepareIndex(indexName, "dataset_landing_page", searchDocument.getUri().toString());
+        indexRequestBuilder.setSource(serialise(searchDocument));
+
+        return indexRequestBuilder;
+    }
+
+    private void indexSingleContent(String indexName, Page page) throws URISyntaxException, IOException {
         List<String> terms = resolveSearchTerms(page.getUri().toString());
         searchUtils.createDocument(indexName, page.getType().toString(), page.getUri().toString(), serialise(toSearchDocument(page, terms)));
     }

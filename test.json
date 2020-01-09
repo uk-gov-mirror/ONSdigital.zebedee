@@ -1,0 +1,37 @@
+{
+  "approvalStatus": "NOT_STARTED",
+  "publishComplete": false,
+  "isEncrypted": true,
+  "datasets": [
+    {
+      "id": "suicides-in-the-uk",
+      "title": "Suicides in the UK",
+      "state": "Complete",
+      "uri": "http://localhost:22000/datasets/suicides-in-the-uk",
+      "lastEditedBy": "florence@magicroundabout.ons.gov.uk"
+    }
+  ],
+  "datasetVersions": [
+    {
+      "id": "suicides-in-the-uk",
+      "title": "Suicides in the UK",
+      "edition": "time-series",
+      "version": "1",
+      "uri": "http://localhost:22000/datasets/suicides-in-the-uk/editions/time-series/versions/1",
+      "state": "Complete",
+      "lastEditedBy": "florence@magicroundabout.ons.gov.uk"
+    }
+  ],
+  "timeseriesImportFiles": [],
+  "events": [
+    {
+      "date": "2019-10-16T16:33:24.434Z",
+      "type": "CREATED",
+      "email": "florence@magicroundabout.ons.gov.uk"
+    }
+  ],
+  "id": "aaaaa-cb485c34245eb2b7736f32a2439320650fe0b2ba765b7ab61a578efa4e4890f7",
+  "name": "aaaaa",
+  "type": "manual",
+  "teams": []
+}

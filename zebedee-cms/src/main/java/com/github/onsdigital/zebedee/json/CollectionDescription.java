@@ -24,7 +24,7 @@ public class CollectionDescription extends CollectionBase {
     public List<String> reviewedUris;
     public ApprovalStatus approvalStatus = ApprovalStatus.NOT_STARTED;
     public boolean publishComplete;
-    public Map<String, String> publishTransactionIds;
+    private Map<String, String> publishTransactionIds;
     public Date publishStartDate; // The date the publish process was actually started
     public Date publishEndDate; // The date the publish process ended.
     public boolean isEncrypted;
@@ -243,5 +243,13 @@ public class CollectionDescription extends CollectionBase {
         if (this.datasetVersions == null) return;
 
         this.datasetVersions.remove(version);
+    }
+
+    public Map<String, String> getPublishTransactionIds() {
+        return this.publishTransactionIds;
+    }
+
+    public void setPublishTransactionIds(Map<String, String> publishTransactionIds) {
+        this.publishTransactionIds = publishTransactionIds;
     }
 }

@@ -10,8 +10,13 @@ import com.github.onsdigital.zebedee.json.EventType;
 import com.github.onsdigital.zebedee.json.publishing.Result;
 import com.github.onsdigital.zebedee.json.publishing.UriInfo;
 import com.github.onsdigital.zebedee.json.publishing.request.Manifest;
+import com.github.onsdigital.zebedee.logging.CMSLogEvent;
 import com.github.onsdigital.zebedee.model.Collection;
 import com.github.onsdigital.zebedee.model.content.item.VersionedContentItem;
+import com.github.onsdigital.zebedee.model.publishing.client.TrainClientImpl;
+import com.github.onsdigital.zebedee.model.publishing.verify.HashVerificationException;
+import com.github.onsdigital.zebedee.model.publishing.verify.HashVerifier;
+import com.github.onsdigital.zebedee.model.publishing.verify.HashVerifierImpl;
 import com.github.onsdigital.zebedee.reader.CollectionReader;
 import com.github.onsdigital.zebedee.reader.Resource;
 import com.github.onsdigital.zebedee.service.DatasetService;
@@ -43,17 +48,16 @@ import java.util.concurrent.locks.Lock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.github.onsdigital.logging.v2.event.SimpleEvent.info;
+import static com.github.onsdigital.logging.v2.event.SimpleEvent.warn;
 import static com.github.onsdigital.zebedee.configuration.CMSFeatureFlags.cmsFeatureFlags;
+import static com.github.onsdigital.zebedee.logging.CMSLogEvent.error;
 import static com.github.onsdigital.zebedee.model.publishing.PostPublisher.getPublishedCollection;
 import static com.github.onsdigital.zebedee.util.SlackNotification.CollectionStage.PUBLISH;
 import static com.github.onsdigital.zebedee.util.SlackNotification.StageStatus.FAILED;
 import static com.github.onsdigital.zebedee.util.SlackNotification.StageStatus.STARTED;
 import static com.github.onsdigital.zebedee.util.SlackNotification.collectionAlarm;
 import static com.github.onsdigital.zebedee.util.SlackNotification.publishNotification;
-
-import static com.github.onsdigital.logging.v2.event.SimpleEvent.info;
-import static com.github.onsdigital.logging.v2.event.SimpleEvent.warn;
-import static com.github.onsdigital.logging.v2.event.SimpleEvent.error;
 
 
 public class Publisher {
@@ -74,6 +78,7 @@ public class Publisher {
     private static final String ZIP_PARAM = "zip";
 
     private static ServiceSupplier<DatasetService> datasetServiceSupplier;
+    private static ServiceSupplier<HashVerifier> hashVerifierSupplier;
 
     static {
         theTrainHosts = Configuration.getTheTrainHosts();
@@ -81,6 +86,8 @@ public class Publisher {
 
         // lazy loaded approach for getting the datasetService.
         datasetServiceSupplier = () -> ZebedeeCmsService.getInstance().getDatasetService();
+
+        hashVerifierSupplier = () -> new HashVerifierImpl(new TrainClientImpl());
     }
 
     /**
@@ -96,10 +103,11 @@ public class Publisher {
      * Execute the publishing steps.
      */
     public static boolean executePublish(Collection collection, CollectionReader collectionReader, String email)
-            throws IOException {
+            throws IOException, ExecutionException, InterruptedException {
         boolean success = false;
 
-        publishFilteredCollectionFiles(collection, collectionReader);
+        List<String> filesAddedToTransaction = publishFilteredCollectionFiles(collection, collectionReader);
+        verifyContentHashes(collection, collectionReader, filesAddedToTransaction);
 
         // TODO - feels like we should check/return here if unsuccessful?
         success = commitPublish(collection, email);
@@ -234,32 +242,55 @@ public class Publisher {
             publishComplete = executePublish(collection, collectionReader, email);
 
             collection.getDescription().publishEndDate = new Date();
-        } catch (Exception e) {
-            PostMessageField msg = new PostMessageField("Error", e.getMessage(), false);
-            collectionAlarm(collection, "Exception publishAction collection", msg);
-
-            // If an error was caught, attempt to roll back the transaction:
-            Map<String, String> transactionIds = collection.getDescription().publishTransactionIds;
-            if (transactionIds != null && transactionIds.size() > 0) {
-
-                error().data("publishing", true).data("collectionId", collection.getDescription().getId())
-                        .data("hostToTransactionID", transactionIds)
-                        .logException(e, "error while attempting to publish, transaction IDs found for collection attempting to rollback");
-
-                rollbackPublish(collection);
-            } else {
-
-                error().data("publishing", true).data("collectionId", collection.getDescription().getId())
-                        .data("hostToTransactionID", transactionIds)
-                        .logException(e, "error while attempting to publish, no transaction IDs found for collection no rollback will be attempted");
-
-            }
-
+        } catch (Exception ex) {
+            handlePublishException(ex, collection);
         } finally {
             // Save any updates to the collection
             saveCollection(collection, publishComplete);
         }
         return publishComplete;
+    }
+
+    private static void handlePublishException(Exception ex, Collection collection) {
+        CMSLogEvent errorEvent = error()
+                .data("publishing", true)
+                .collectionID(collection)
+                .exceptionAll(ex);
+
+        if (ex instanceof ExecutionException) {
+            handleExecutionException((ExecutionException) ex, errorEvent);
+        }
+
+        PostMessageField msg = new PostMessageField("Error", ex.getMessage(), false);
+        collectionAlarm(collection, "Exception publishAction collection", msg);
+
+        // If an error was caught, attempt to roll back the transaction:
+        Map<String, String> transactionIds = collection.getDescription().publishTransactionIds;
+        if (transactionIds != null && transactionIds.size() > 0) {
+
+            errorEvent.data("hostToTransactionID", transactionIds)
+                    .log("error while attempting to publish, transaction IDs found for collection attempting to rollback");
+
+            rollbackPublish(collection);
+        } else {
+
+            errorEvent.data("hostToTransactionID", transactionIds)
+                    .log("error while attempting to publish, no " +
+                            "transaction IDs found for collection no rollback will be attempted");
+        }
+    }
+
+    private static void handleExecutionException(ExecutionException ex, CMSLogEvent event) {
+        Throwable cause = ex.getCause();
+
+        if ((cause != null) && (cause instanceof HashVerificationException)) {
+            HashVerificationException tvEx = (HashVerificationException) cause;
+
+            event.data("train_host", tvEx.getHost())
+                    .data("transaction_id", tvEx.getTransactionId())
+                    .data("uri",
+                            tvEx.getUri());
+        }
     }
 
     public static Map<String, String> createPublishingTransactions(Collection collection)
@@ -286,12 +317,13 @@ public class Publisher {
                     error().data("publishing", true).data("trainHost", host).data("collectionId", collectionId).
                             logException(e, "error while attempting to create new transactions for collection");
 
-                    if (collection.getDescription().publishTransactionIds != null
-                            && !collection.getDescription().publishTransactionIds.isEmpty()) {
+
+                    if (collection.getDescription().getPublishTransactionIds() != null
+                            && !collection.getDescription().getPublishTransactionIds().isEmpty()) {
                         warn().data("publishing", true).data("trainHost", host).data("collectionId", collectionId).
                                 log("clearing existing transactionIDs from collection");
 
-                        collection.getDescription().publishTransactionIds.clear();
+                        collection.getDescription().getPublishTransactionIds().clear();
                     }
                     result = e;
                 }
@@ -300,7 +332,7 @@ public class Publisher {
         }
 
         checkFutureResults(results, "error creating publishAction transaction");
-        collection.getDescription().publishTransactionIds = hostToTransactionIDMap;
+        collection.getDescription().setPublishTransactionIds(hostToTransactionIDMap);
         collection.save();
 
         info().data("publishing", true).data("collectionId", collectionId)
@@ -318,7 +350,7 @@ public class Publisher {
      * @param collectionReader
      * @throws IOException
      */
-    public static void publishFilteredCollectionFiles(Collection collection, CollectionReader collectionReader) throws IOException {
+/*    public static void publishFilteredCollectionFiles(Collection collection, CollectionReader collectionReader) throws IOException {
         // We do not want to send versioned files. They have already been taken care of via the manifest.
         // Pass the function to filter files into the publish method.
         Function<String, Boolean> versionedUriFilter = uri -> VersionedContentItem.isVersionedUri(uri);
@@ -328,6 +360,8 @@ public class Publisher {
 
         List<Future<IOException>> results = new ArrayList<>();
         long start = System.currentTimeMillis();
+
+        List<String> filesToPublish = new ArrayList<>();
 
         // Publish each item of content:
         for (String uri : collection.reviewed.uris()) {
@@ -350,6 +384,7 @@ public class Publisher {
                         Host theTrainHost = new Host(entry.getKey());
                         String transactionId = entry.getValue();
 
+                        filesToPublish.add(uri);
                         results.add(publishFile(collection.getDescription().getId(), theTrainHost,
                                 transactionId, uri, publishUri, zipped, source, collectionReader));
                     }
@@ -362,6 +397,79 @@ public class Publisher {
         info().data("publishing", true).data("collectionId", collection.getDescription().getId())
                 .data("hostToTransactionID", collection.getDescription().publishTransactionIds)
                 .data("timeTaken", (System.currentTimeMillis() - start)).log("successfully sent all publish file requests to the train");
+
+        try {
+            new TransactionVerifier().verifyTransactionContent(filesToPublish,
+                    collection.getDescription().publishTransactionIds, collectionReader);
+        } catch (Exception ex) {
+            throw new IOException(ex);
+        }
+
+        info().log("data integrity checked susccessfully");
+    }*/
+    public static List<String> publishFilteredCollectionFiles(Collection collection, CollectionReader collectionReader)
+            throws IOException {
+        List<String> filesAddedToTransaction = new ArrayList<>();
+
+        // We do not want to send versioned files. They have already been taken care of via the manifest.
+        // Pass the function to filter files into the publish method.
+        Function<String, Boolean> versionedUriFilter = uri -> VersionedContentItem.isVersionedUri(uri);
+        Function<String, Boolean> timeseriesUriFilter = uri -> uri.contains("/timeseries/");
+
+        Function<String, Boolean>[] filters = new Function[]{versionedUriFilter, timeseriesUriFilter};
+
+        List<Future<IOException>> results = new ArrayList<>();
+        long start = System.currentTimeMillis();
+
+
+        // Publish each item of content:
+        for (String uri : collection.reviewed.uris()) {
+            if (!shouldBeFiltered(filters, uri)) {
+                //publishFile(collection, encryptionPassword, results, uri, collectionReader);
+
+                Path source = collection.reviewed.get(uri);
+                if (source != null) {
+                    boolean zipped = false;
+                    String publishUri = uri;
+
+                    // if we have a recognised compressed file - set the zip header and set the correct uri so that the files
+                    // are unzipped to the correct place.
+                    if (source.getFileName().toString().equals("timeseries-to-publish.zip")) {
+                        zipped = true;
+                        publishUri = StringUtils.removeEnd(uri, "-to-publish.zip");
+                    }
+
+                    for (Map.Entry<String, String> entry : collection.getDescription().publishTransactionIds.entrySet()) {
+                        Host theTrainHost = new Host(entry.getKey());
+                        String transactionId = entry.getValue();
+
+                        filesAddedToTransaction.add(uri);
+                        results.add(publishFile(collection.getDescription().getId(), theTrainHost,
+                                transactionId, uri, publishUri, zipped, source, collectionReader));
+                    }
+                }
+            }
+        }
+
+        checkFutureResults(results, "error while attempting to publish file");
+
+        info().data("publishing", true).data("collectionId", collection.getDescription().getId())
+                .data("hostToTransactionID", collection.getDescription().publishTransactionIds)
+                .data("timeTaken", (System.currentTimeMillis() - start))
+                .log("successfully sent all publish file requests to the train");
+
+        info().log("data integrity checked susccessfully");
+        return filesAddedToTransaction;
+    }
+
+    private static void verifyContentHashes(Collection collection, CollectionReader collectionReader,
+                                            List<String> filesAddedToTransaction) throws IOException,
+            ExecutionException, InterruptedException {
+
+        Map<String, String> hostTransactionMapping = collection.getDescription().publishTransactionIds;
+
+        hashVerifierSupplier.getService().verifyPublishingTransactionHashes(filesAddedToTransaction,
+                hostTransactionMapping, collectionReader);
     }
 
     private static Future<IOException> publishFile(
@@ -620,7 +728,7 @@ public class Publisher {
                     .data("statusCode", code)
                     .data("reason", reason)
                     .data("message", message)
-                    .logException(io,"request was unsuccessful");
+                    .logException(io, "request was unsuccessful");
             throw io;
 
         } else if (response.body.error == true) {

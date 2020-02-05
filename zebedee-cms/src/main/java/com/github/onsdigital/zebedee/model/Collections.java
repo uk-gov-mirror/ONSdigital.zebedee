@@ -16,6 +16,7 @@ import com.github.onsdigital.zebedee.json.ApprovalStatus;
 import com.github.onsdigital.zebedee.json.Event;
 import com.github.onsdigital.zebedee.json.EventType;
 import com.github.onsdigital.zebedee.json.Keyring;
+import com.github.onsdigital.zebedee.logging.CMSLogEvent;
 import com.github.onsdigital.zebedee.model.approval.ApprovalQueue;
 import com.github.onsdigital.zebedee.model.approval.ApproveTask;
 import com.github.onsdigital.zebedee.model.publishing.PostPublisher;
@@ -48,7 +49,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Future;
@@ -58,6 +61,9 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static com.github.onsdigital.zebedee.configuration.Configuration.getUnauthorizedMessage;
+import static com.github.onsdigital.zebedee.logging.CMSLogEvent.error;
+import static com.github.onsdigital.zebedee.logging.CMSLogEvent.info;
+import static com.github.onsdigital.zebedee.logging.CMSLogEvent.warn;
 import static com.github.onsdigital.zebedee.model.Content.isDataVisualisationFile;
 import static com.github.onsdigital.zebedee.persistence.CollectionEventType.COLLECTION_APPROVED;
 import static com.github.onsdigital.zebedee.persistence.CollectionEventType.COLLECTION_COMPLETED_ERROR;
@@ -70,9 +76,6 @@ import static com.github.onsdigital.zebedee.persistence.CollectionEventType.COLL
 import static com.github.onsdigital.zebedee.persistence.model.CollectionEventMetaData.contentMoved;
 import static com.github.onsdigital.zebedee.persistence.model.CollectionEventMetaData.contentRenamed;
 
-import static com.github.onsdigital.logging.v2.event.SimpleEvent.info;
-import static com.github.onsdigital.logging.v2.event.SimpleEvent.error;
-
 public class Collections {
 
     public final Path path;
@@ -84,6 +87,7 @@ public class Collections {
     private BiConsumer<Collection, EventType> publishingNotificationConsumer = (c, e) -> new PublishNotification(c).sendNotification(e);
     private Function<Path, ContentReader> contentReaderFactory = FileSystemContentReader::new;
     private Supplier<CollectionHistoryDao> collectionHistoryDaoSupplier = CollectionHistoryDaoFactory::getCollectionHistoryDao;
+    private Comparator<String> strComparator = Comparator.comparing(String::toString);
 
     public Collections(Path path, PermissionsService permissionsService, Content published) {
         this.path = path;
@@ -225,13 +229,35 @@ public class Collections {
                     try {
                         result.add(new Collection(path, zebedeeSupplier.get()));
                     } catch (CollectionNotFoundException e) {
-                        error().data("collectionPath", path.toString()).logException(e, "Failed to deserialise collection");
+                        error().data("collection_path", path.toString())
+                                .logException(e, "failed to deserialise collection");
                     }
                 }
             }
         }
 
         return result;
+    }
+
+    public List<String> listOrphaned() throws IOException {
+        List<String> orphans = new ArrayList<>();
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(path)) {
+            for (Path collectionPath : stream) {
+                if (Files.isDirectory(collectionPath)) {
+                    String collectionDirName = collectionPath.toFile().getName();
+                    if (!path.resolve(collectionDirName + ".json").toFile().exists()) {
+                        orphans.add(collectionDirName);
+                    }
+                }
+            }
+        }
+        if (!orphans.isEmpty()) {
+            orphans.sort(strComparator);
+            warn().data("orphaned_collections", orphans)
+                    .log("orphaned collections found. It's recommended you investiagte and fix these. Encryption keys " +
+                            "for these collections will not be removed from users");
+        }
+        return orphans;
     }
 
     public Map<String, Collection> mapByID() throws IOException {
@@ -692,34 +718,45 @@ public class Collections {
         }
 
         // Find the file if it exists
-        Path path = collection.find(uri);
+        Path contentTargetPath = collection.find(uri);
 
         // Check the user has access to the given file
-        if (path == null || !collection.isInCollection(uri)) {
+        if (contentTargetPath == null || !collection.isInCollection(uri)) {
             throw new NotFoundException(
                     "This URI cannot be found in the collection");
         }
 
-        // Go ahead
-        boolean deleted;
-        CollectionEventType eventType;
+        boolean deleted = deletcContentFromCollection(collection, session, contentTargetPath, uri);
+        collection.save();
 
-        if (isDataVisualisationFile(path)) {
+        if (deleted) {
+            removeEmptyCollectionDirectories(contentTargetPath);
+            collectionHistoryDaoSupplier.get().saveCollectionHistoryEvent(new CollectionHistoryEvent(collection, session,
+                    COLLECTION_CONTENT_DELETED, uri));
+        }
+        return deleted;
+    }
+
+    boolean deletcContentFromCollection(Collection collection, Session session, Path contentTargetPath, String uri) throws IOException {
+        boolean deleted;
+        Path uriPath = Paths.get(uri);
+
+        CMSLogEvent event = info().collectionID(collection).uri(contentTargetPath);
+
+        if (isDataVisualisationFile(contentTargetPath)) {
+            event.log("deleting data viz zip from collection content");
             deleted = collection.deleteDataVisContent(session, Paths.get(uri));
-        } else if (Files.isDirectory(path)) {
+        } else if (Files.isDirectory(contentTargetPath)) {
+            event.log("deleting directory from collection content");
             deleted = collection.deleteContentDirectory(session.getEmail(), uri);
+        } else if (Content.isDataJsonFile(uri)) {
+            event.log("deleting data.json and related files from collection content");
+            deleted = collection.deleteFileAndRelated(uri);
         } else {
+            event.log("deleting single file from colleciton content");
             deleted = collection.deleteFile(uri);
         }
 
-        eventType = COLLECTION_CONTENT_DELETED;
-
-        collection.save();
-        if (deleted) {
-            removeEmptyCollectionDirectories(path);
-            collectionHistoryDaoSupplier.get().saveCollectionHistoryEvent(new CollectionHistoryEvent(collection, session,
-                    eventType, uri));
-        }
         return deleted;
     }
 

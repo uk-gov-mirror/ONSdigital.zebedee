@@ -34,7 +34,7 @@ job "zebedee" {
       driver = "docker"
 
       artifact {
-        source = "s3::https://s3-eu-west-1.amazonaws.com/{{DEPLOYMENT_BUCKET}}/zebedee/{{REVISION}}.tar.gz"
+        source = "s3::https://s3-eu-west-1.amazonaws.com/{{DEPLOYMENT_BUCKET}}/zebedee/{{TARGET_ENVIRONMENT}}/{{RELEASE}}.tar.gz"
       }
 
       config {
@@ -66,6 +66,13 @@ job "zebedee" {
         name = "zebedee"
         port = "http"
         tags = ["publishing"]
+
+        check {
+          type     = "http"
+          path     = "/health"
+          interval = "10s"
+          timeout  = "2s"
+        }
       }
 
       resources {

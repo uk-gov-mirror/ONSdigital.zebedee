@@ -20,7 +20,7 @@
             </snapshots>
             <id>central</id>
             <name>Central Repository</name>
-            <url>http://repo.maven.apache.org/maven2</url>
+            <url>https://repo.maven.apache.org/maven2</url>
         </repository>
         <!--Jitpack io allows us include projects and libraries available on github but not built and published to maven central-->
         <!-- It is used for including internal project modules. See more on https://jitpack.io/-->
@@ -91,13 +91,14 @@
         <dependency>
             <groupId>com.github.ONSdigital</groupId>
             <artifactId>dp-logging</artifactId>
-            <version>release~1.1.0</version>
+            <!--<version>v1.4.0</version>-->
+            <version>release~1.3.0</version>
         </dependency>
 
         <dependency>
             <groupId>com.github.ONSdigital</groupId>
             <artifactId>dp-dataset-api-java-client</artifactId>
-            <version>master-68c93fbf15-1</version>
+            <version>master-ac2deec232-1</version>
         </dependency>
 
     </dependencies>
@@ -120,6 +121,7 @@
                     </execution>
                 </executions>
             </plugin>
+
         </plugins>
 
     </build>

@@ -1,6 +1,7 @@
 package com.github.onsdigital.zebedee.session.service;
 
 import com.github.davidcarboni.cryptolite.Random;
+import com.github.onsdigital.zebedee.TestUtils;
 import com.github.onsdigital.zebedee.exceptions.BadRequestException;
 import com.github.onsdigital.zebedee.exceptions.NotFoundException;
 import com.github.onsdigital.zebedee.json.Credentials;
@@ -10,7 +11,9 @@ import com.github.onsdigital.zebedee.user.service.UsersService;
 import com.github.onsdigital.zebedee.session.store.SessionsStoreImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.joda.time.DateTime;
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -38,9 +41,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Test verify behaviour or {@link SessionsService}.
+ * Test verify behaviour or {@link SessionsServiceImpl}.
  */
-public class SessionsServiceTest {
+public class SessionsServiceServiceImplTest {
 
     private static ObjectMapper OBJ_MAPPER = new ObjectMapper();
     private static final String EMAIL = "TEST@ons.gov.uk";
@@ -64,12 +67,22 @@ public class SessionsServiceTest {
     private Session sessionMock;
 
     private Credentials credentials;
-    private SessionsService sessionsService;
+    private SessionsServiceImpl sessionsServiceImpl;
     private Path sessionsPath;
     private User user;
 
     private Path sessionPath() {
         return sessionsPath.resolve(SESSION_ID + JSON_EXT);
+    }
+
+    @BeforeClass
+    public static void setup() {
+        TestUtils.initReaderConfig();
+    }
+
+    @AfterClass
+    public static void tearDown() {
+        TestUtils.clearReaderConfig();
     }
 
     @Before
@@ -82,7 +95,7 @@ public class SessionsServiceTest {
         credentials.email = EMAIL;
         credentials.password = PWD;
 
-        sessionsService = new SessionsService(sessionsPath);
+        sessionsServiceImpl = new SessionsServiceImpl(sessionsPath);
 
         user = new User();
         user.setEmail(EMAIL);
@@ -90,8 +103,8 @@ public class SessionsServiceTest {
         when(randomIdGenerator.get())
                 .thenReturn(SESSION_ID);
 
-        ReflectionTestUtils.setField(sessionsService, "randomIdGenerator", randomIdGenerator);
-        ReflectionTestUtils.setField(sessionsService, "sessionsStore", sessionsStore);
+        ReflectionTestUtils.setField(sessionsServiceImpl, "randomIdGenerator", randomIdGenerator);
+        ReflectionTestUtils.setField(sessionsServiceImpl, "sessionsStore", sessionsStore);
     }
 
     @Test
@@ -100,7 +113,7 @@ public class SessionsServiceTest {
         expected.setEmail(EMAIL);
         expected.setId(SESSION_ID);
 
-        Session actual = sessionsService.create(user);
+        Session actual = sessionsServiceImpl.create(user);
 
         assertThat(expected, equalTo(actual));
         verify(sessionsStore, times(1)).write(expected);
@@ -109,7 +122,7 @@ public class SessionsServiceTest {
 
     @Test
     public void shouldNotCreateDuplicateSession() throws IOException, NotFoundException, BadRequestException {
-        ReflectionTestUtils.setField(sessionsService, "sessionsStore", sessionsStore);
+        ReflectionTestUtils.setField(sessionsServiceImpl, "sessionsStore", sessionsStore);
         Path p = sessionPath();
 
         when(sessionsStore.read(any()))
@@ -119,7 +132,7 @@ public class SessionsServiceTest {
         when(sessionMock.getLastAccess())
                 .thenReturn(new Date());
 
-        sessionsService.create(user);
+        sessionsServiceImpl.create(user);
 
         when(sessionsStore.find(EMAIL))
                 .thenReturn(sessionMock);
@@ -127,7 +140,7 @@ public class SessionsServiceTest {
         when(sessionsStore.read(any()))
                 .thenReturn(sessionMock);
 
-        sessionsService.create(user);
+        sessionsServiceImpl.create(user);
 
         verify(sessionsStore, times(2)).find(EMAIL);
         verify(sessionsStore, times(1)).write(sessionMock);
@@ -137,7 +150,7 @@ public class SessionsServiceTest {
     public void shouldGetSession() throws IOException, NotFoundException, BadRequestException {
         // Create a session.
         randomIdGenerator = () -> Random.id();
-        ReflectionTestUtils.setField(sessionsService, "randomIdGenerator", randomIdGenerator);
+        ReflectionTestUtils.setField(sessionsServiceImpl, "randomIdGenerator", randomIdGenerator);
 
 
         // create a session.
@@ -150,7 +163,7 @@ public class SessionsServiceTest {
         when(sessionsStore.read(sessionPath()))
                 .thenReturn(expected);
 
-        assertThat(sessionsService.get(SESSION_ID), equalTo(expected));
+        assertThat(sessionsServiceImpl.get(SESSION_ID), equalTo(expected));
         verify(sessionsStore, times(1)).exists(SESSION_ID);
         verify(sessionsStore, times(1)).read(sessionPath());
     }
@@ -160,14 +173,14 @@ public class SessionsServiceTest {
         when(sessionsStore.find(EMAIL))
                 .thenReturn(null);
 
-        assertThat(sessionsService.find(EMAIL), equalTo(null));
+        assertThat(sessionsServiceImpl.find(EMAIL), equalTo(null));
         verify(sessionsStore, times(1)).find(EMAIL);
         verify(sessionsStore, never()).write(any(Session.class));
     }
 
     @Test
     public void shouldReturnNullIfEmailIsEmptyOfNull() throws IOException, NotFoundException, BadRequestException {
-        Session result = sessionsService.create(new User());
+        Session result = sessionsServiceImpl.create(new User());
 
         assertNull(result);
         verify(sessionsStore, never()).find(anyString());
@@ -181,7 +194,7 @@ public class SessionsServiceTest {
         when(sessionMock.getLastAccess())
                 .thenReturn(new Date());
 
-        assertThat(sessionsService.find(EMAIL), equalTo(sessionMock));
+        assertThat(sessionsServiceImpl.find(EMAIL), equalTo(sessionMock));
         verify(sessionsStore, times(1)).find(EMAIL);
         verify(sessionMock, times(1)).setLastAccess(any(Date.class));
         verify(sessionMock, times(1)).getLastAccess();
@@ -193,7 +206,7 @@ public class SessionsServiceTest {
         when(sessionsStore.find(EMAIL))
                 .thenReturn(null);
 
-        assertNull(sessionsService.find(EMAIL));
+        assertNull(sessionsServiceImpl.find(EMAIL));
         verify(sessionsStore, times(1)).find(EMAIL);
         verify(sessionsStore, never()).write(any(Session.class));
     }
@@ -208,10 +221,10 @@ public class SessionsServiceTest {
         when(sessionMock.getId())
                 .thenReturn(SESSION_ID);
 
-        sessionsService.deleteExpiredSessions();
+        sessionsServiceImpl.deleteExpiredSessions();
 
         verify(sessionsStore, times(1)).filterSessions(any(Predicate.class));
-        verify(sessionMock, times(2)).getId();
+        verify(sessionMock, times(1)).getId();
         verify(sessionsStore, times(1)).delete(sessionPath());
     }
 
@@ -223,7 +236,7 @@ public class SessionsServiceTest {
         when(sessionMock.getLastAccess())
                 .thenReturn(currentTime.toDate());
 
-        Date result = sessionsService.getExpiryDate(sessionMock);
+        Date result = sessionsServiceImpl.getExpiryDate(sessionMock);
         DateTime actual = new DateTime(result);
 
         assertThat(actual.getYear(), equalTo(expected.getYear()));

@@ -2,10 +2,10 @@ package com.github.onsdigital.zebedee.session.service;
 
 import com.github.davidcarboni.cryptolite.Random;
 import com.github.onsdigital.zebedee.model.PathUtils;
-import com.github.onsdigital.zebedee.session.store.SessionsStoreImpl;
-import com.github.onsdigital.zebedee.session.model.Session;
-import com.github.onsdigital.zebedee.user.model.User;
 import com.github.onsdigital.zebedee.reader.util.RequestUtils;
+import com.github.onsdigital.zebedee.session.model.Session;
+import com.github.onsdigital.zebedee.session.store.SessionsStoreImpl;
+import com.github.onsdigital.zebedee.user.model.User;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.servlet.http.HttpServletRequest;
@@ -24,7 +24,7 @@ import static com.github.onsdigital.logging.v2.event.SimpleEvent.info;
 /**
  * Created by david on 12/03/2015.
  */
-public class SessionsService extends TimerTask {
+public class SessionsServiceImpl extends TimerTask implements Sessions {
 
     private static final String DELETING_SESSION_MSG = "Deleting expired session";
     private static final String SESSION_ID_PARAM = "sessionId";
@@ -37,7 +37,7 @@ public class SessionsService extends TimerTask {
     Timer timer;
     private Path sessionsPath;
 
-    public SessionsService(Path sessionsPath) {
+    public SessionsServiceImpl(Path sessionsPath) {
         this.sessionsPath = sessionsPath;
         this.sessionsStore = new SessionsStoreImpl(sessionsPath);
 
@@ -168,7 +168,7 @@ public class SessionsService extends TimerTask {
         List<Session> expired = sessionsStore.filterSessions(isExpired);
 
         for (Session s : expired) {
-            info().data(SESSION_ID_PARAM, s.getId()).log(DELETING_SESSION_MSG);
+            info().data("user", s.getEmail()).log(DELETING_SESSION_MSG);
             sessionsStore.delete(sessionPath(s.getId()));
         }
     }

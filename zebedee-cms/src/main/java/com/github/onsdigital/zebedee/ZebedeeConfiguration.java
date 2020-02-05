@@ -16,7 +16,8 @@ import com.github.onsdigital.zebedee.reader.FileSystemContentReader;
 import com.github.onsdigital.zebedee.service.DatasetService;
 import com.github.onsdigital.zebedee.service.ServiceStoreImpl;
 import com.github.onsdigital.zebedee.service.ZebedeeDatasetService;
-import com.github.onsdigital.zebedee.session.service.SessionsService;
+import com.github.onsdigital.zebedee.session.service.Sessions;
+import com.github.onsdigital.zebedee.session.service.SessionsServiceImpl;
 import com.github.onsdigital.zebedee.teams.service.TeamsService;
 import com.github.onsdigital.zebedee.teams.service.TeamsServiceImpl;
 import com.github.onsdigital.zebedee.teams.store.TeamsStoreFileSystemImpl;
@@ -32,6 +33,8 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static com.github.onsdigital.logging.v2.event.SimpleEvent.error;
+import static com.github.onsdigital.logging.v2.event.SimpleEvent.info;
 import static com.github.onsdigital.zebedee.Zebedee.APPLICATION_KEYS;
 import static com.github.onsdigital.zebedee.Zebedee.COLLECTIONS;
 import static com.github.onsdigital.zebedee.Zebedee.PERMISSIONS;
@@ -43,16 +46,12 @@ import static com.github.onsdigital.zebedee.Zebedee.TEAMS;
 import static com.github.onsdigital.zebedee.Zebedee.USERS;
 import static com.github.onsdigital.zebedee.Zebedee.ZEBEDEE;
 import static com.github.onsdigital.zebedee.permissions.store.PermissionsStoreFileSystemImpl.initialisePermissions;
-import static com.github.onsdigital.logging.v2.event.SimpleEvent.info;
-import static com.github.onsdigital.logging.v2.event.SimpleEvent.error;
 
 /**
  * Object encapsulating the set up configuration required by {@link Zebedee}. Set paths to & create relevant
  * directories required by zebedee, create the service instances it requires etc.
  */
 public class ZebedeeConfiguration {
-
-    private static final String LOG_PREFIX = "[ZebedeeConfiguration]: ";
 
     private Path rootPath;
     private Path zebedeePath;
@@ -75,7 +74,7 @@ public class ZebedeeConfiguration {
     private PermissionsService permissionsService;
     private UsersService usersService;
     private TeamsService teamsService;
-    private SessionsService sessionsService;
+    private Sessions sessions;
     private DataIndex dataIndex;
     private PermissionsStore permissionsStore;
     private DatasetService datasetService;
@@ -83,10 +82,8 @@ public class ZebedeeConfiguration {
     private static Path createDir(Path root, String dirName) throws IOException {
         Path dir = root.resolve(dirName);
         if (!Files.exists(dir)) {
-            info().data("path", dirName).log(LOG_PREFIX + "Creating required Zebedee directory as it does not exist.");
+            info().data("path", dirName).log("creating required Zebedee directory as it does not exist.");
             Files.createDirectory(dir);
-        } else {
-            info().data("path", dir.toString()).log(LOG_PREFIX + "Zebedee directory already exists no action required.");
         }
         return dir;
     }
@@ -99,13 +96,10 @@ public class ZebedeeConfiguration {
      * @throws IOException
      */
     public ZebedeeConfiguration(Path rootPath, boolean enableVerificationAgent) throws IOException {
-
-        info().log(LOG_PREFIX + "Creating ZebedeeConfiguration");
-
         if (Files.exists(rootPath)) {
-            info().data("path", rootPath.toString()).log(LOG_PREFIX + "Setting Zebedee root directory");
+            info().data("path", rootPath.toString()).log("setting Zebedee root directory");
         } else {
-            throw new IllegalArgumentException(LOG_PREFIX + "Zebedee root directory doesn't not exist." + rootPath.toAbsolutePath());
+            throw new IllegalArgumentException("zebedee root directory doesn't not exist." + rootPath.toAbsolutePath());
         }
 
         // Create the zebedee file system structure
@@ -132,8 +126,8 @@ public class ZebedeeConfiguration {
         this.dataIndex = new DataIndex(new FileSystemContentReader(publishedContentPath));
         this.publishedCollections = new PublishedCollections(publishedCollectionsPath);
         this.applicationKeys = new ApplicationKeys(applicationKeysPath);
-        this.sessionsService = new SessionsService(sessionsPath);
-        this.keyringCache = new KeyringCache(sessionsService);
+        this.sessions = new SessionsServiceImpl(sessionsPath);
+        this.keyringCache = new KeyringCache(sessions);
 
         this.teamsService = new TeamsServiceImpl(
                 new TeamsStoreFileSystemImpl(teamsPath), this::getPermissionsService);
@@ -168,7 +162,20 @@ public class ZebedeeConfiguration {
 
         datasetService = new ZebedeeDatasetService(datasetClient);
 
-        info().log(LOG_PREFIX + "ZebedeeConfiguration creation complete.");
+        info().data("root_path", rootPath.toString())
+                .data("zebedee_path", zebedeePath.toString())
+                .data("published_content_path", publishedContentPath.toString())
+                .data("collections_path", collectionsPath.toString())
+                .data("published_collections_path", publishedCollectionsPath.toString())
+                .data("users_path", usersPath.toString())
+                .data("sessions_path", sessionsPath.toString())
+                .data("permissions_path", permissionsPath.toString())
+                .data("teams_path", teamsPath.toString())
+                .data("application_keys_path", applicationKeysPath.toString())
+                .data("redirect_path", applicationKeysPath.toString())
+                .data("services_path", servicePath.toString())
+                .data("enable_verification_agent", useVerificationAgent)
+                .log("zebedee configuration creation complete");
     }
 
     public boolean isUseVerificationAgent() {
@@ -232,7 +239,7 @@ public class ZebedeeConfiguration {
                 Files.createFile(redirectPath);
             } catch (IOException e) {
                 error().data("requestedPath", redirectPath.toString())
-                        .logException(e, LOG_PREFIX + "Could not save redirect to requested path");
+                        .logException(e, "could not save redirect to requested path");
             }
         } else {
             content.redirect = new RedirectTablePartialMatch(content, redirectPath);
@@ -260,8 +267,8 @@ public class ZebedeeConfiguration {
         return this.applicationKeys;
     }
 
-    public SessionsService getSessionsService() {
-        return this.sessionsService;
+    public Sessions getSessions() {
+        return this.sessions;
     }
 
     public PermissionsService getPermissionsService() {

@@ -63,6 +63,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Scanner;
@@ -72,10 +73,12 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
+import static com.github.onsdigital.logging.v2.event.SimpleEvent.error;
+import static com.github.onsdigital.logging.v2.event.SimpleEvent.info;
 import static com.github.onsdigital.zebedee.configuration.CMSFeatureFlags.cmsFeatureFlags;
+import static com.github.onsdigital.zebedee.model.content.item.VersionedContentItem.isVersionedUri;
 import static com.github.onsdigital.zebedee.persistence.CollectionEventType.COLLECTION_CONTENT_REVIEWED;
 import static com.github.onsdigital.zebedee.persistence.CollectionEventType.COLLECTION_CREATED;
 import static com.github.onsdigital.zebedee.persistence.CollectionEventType.COLLECTION_NAME_CHANGED;
@@ -88,8 +91,6 @@ import static com.github.onsdigital.zebedee.persistence.model.CollectionEventMet
 import static com.github.onsdigital.zebedee.persistence.model.CollectionEventMetaData.renamed;
 import static com.github.onsdigital.zebedee.persistence.model.CollectionEventMetaData.reschedule;
 import static com.github.onsdigital.zebedee.persistence.model.CollectionEventMetaData.typeChanged;
-
-import static com.github.onsdigital.logging.v2.event.SimpleEvent.info;
 
 public class Collection {
 
@@ -108,9 +109,9 @@ public class Collection {
 
     public final CollectionDescription description;
     public final Path path;
-    public final Content reviewed;
-    public final Content complete;
-    public final Content inProgress;
+    private final Content reviewed;
+    private final Content complete;
+    private final Content inProgress;
 
     public final Zebedee zebedee;
 
@@ -280,39 +281,109 @@ public class Collection {
         return release;
     }
 
-    /**
-     * Renames an existing {@link Collection} in the given {@link Zebedee}.
-     *
-     * @param collectionDescription The {@link CollectionDescription} for the {@link Collection} to rename.
-     * @param newName               The new name to apply to the {@link Collection}.
-     * @param zebedee
-     * @return
-     * @throws IOException
-     */
-    public static Collection rename(CollectionDescription collectionDescription, String newName, Zebedee zebedee)
+    public static Collection rename(CollectionDescription collectionDescription, String newCollectionName, Zebedee zebedee)
             throws IOException, CollectionNotFoundException {
+        String currentName = collectionDescription.getName();
+        String currentCollectionNameClean = PathUtils.toFilename(currentName);
+        Path currentCollectionPath = getCollectionPath(zebedee, currentCollectionNameClean);
+        Path currentCollectionJsonPath = getCollectionJsonPath(zebedee, currentCollectionNameClean);
 
-        String filename = PathUtils.toFilename(collectionDescription.getName());
-        String newFilename = PathUtils.toFilename(newName);
+        String newCollectionNameClean = PathUtils.toFilename(newCollectionName);
+        Path newCollectionPath = getCollectionPath(zebedee, newCollectionNameClean);
+        Path newCollectionJsonPath = getCollectionJsonPath(zebedee, newCollectionNameClean);
 
-        Path collection = zebedee.getCollections().path.resolve(filename);
-        Path newCollection = zebedee.getCollections().path.resolve(newFilename);
+        Map<String, Object> logData = new HashMap() {{
+            put("current_name_raw", currentName);
+            put("current_name_clean", currentCollectionNameClean);
+            put("new_name_raw", newCollectionName);
+            put("new_name_clean", newCollectionNameClean);
+            put("current_collection_json_path", currentCollectionJsonPath.toString());
+            put("new_collection_json_path", newCollectionJsonPath.toString());
+            put("collection_id", collectionDescription.getId());
+        }};
 
-        new File(collection.toUri()).renameTo(new File(newCollection.toUri()));
+        info().data("details", logData).log("renaming collection");
 
-        // Create the description:
-        Path newPath = zebedee.getCollections().path.resolve(newFilename
-                + ".json");
+        renameCollectionJson(collectionDescription.getId(), currentCollectionJsonPath, newCollectionJsonPath, logData);
 
-        collectionDescription.setName(newName);
+        collectionDescription.setName(newCollectionName);
+        writeCollectionJson(collectionDescription, newCollectionJsonPath, logData);
 
-        try (OutputStream output = Files.newOutputStream(newPath)) {
-            Serialiser.serialise(output, collectionDescription);
+        renameCollectionDir(currentCollectionPath, newCollectionPath, logData);
+
+        info().data("details", logData).log("renamed collection completed successfully");
+        return new Collection(newCollectionPath, zebedee);
+    }
+
+    /**
+     * Rename the collection json file.
+     *
+     * @param collectionID          the id of the collection being renamed.
+     * @param currentCollectionJson the current collection json file path
+     * @param newCollectionJson     the renamed collection json file path
+     * @param logData               logging details
+     * @throws IOException problem renaming the collection json file.
+     */
+    private static void renameCollectionJson(String collectionID, Path currentCollectionJson, Path newCollectionJson,
+                                             Map<String, Object> logData) throws IOException {
+        try {
+            currentCollectionJson.toFile().renameTo(newCollectionJson.toFile());
+            info().data("details", logData).log("successfully renamed collection json");
+        } catch (Exception e) {
+            throw error().data("details", logData).logException(new IOException(e),
+                    "error renaming collection json file");
         }
 
-        Files.delete(zebedee.getCollections().path.resolve(filename + ".json"));
+    }
 
-        return new Collection(zebedee.getCollections().path.resolve(newFilename), zebedee);
+    /**
+     * Write a collection json file to disk.
+     *
+     * @param description           the collection description.
+     * @param newCollectionJsonPath the renamed collection json path
+     * @param logData               logging details
+     * @throws IOException problem writing file
+     */
+    private static void writeCollectionJson(CollectionDescription description, Path newCollectionJsonPath,
+                                            Map<String, Object> logData) throws IOException {
+        try (OutputStream output = Files.newOutputStream(newCollectionJsonPath)) {
+            Serialiser.serialise(output, description);
+            info().data("details", logData).log("successfully saved updated collection json");
+        } catch (Exception e) {
+            throw error().data("details", logData)
+                    .logException(new IOException("error renaming collection json", e),
+                            "error renaming collection json file");
+        }
+
+    }
+
+    /**
+     * Rename a collection directory.
+     *
+     * @param currentCollectionPath the current collecion path
+     * @param newCollectionPath     the renamed collection path
+     * @param logData               logging details
+     * @throws IOException error renaming collection directory
+     */
+    private static void renameCollectionDir(Path currentCollectionPath, Path newCollectionPath,
+                                            Map<String, Object> logData) throws IOException {
+        try {
+            currentCollectionPath.toFile().renameTo(newCollectionPath.toFile());
+            info().data("details", logData).log("successfully renamed collection directory");
+        } catch (Exception e) {
+            throw error().data("details", logData)
+                    .logException(new IOException("error renaming collection json", e),
+                            "error renaming collection directory");
+        }
+
+    }
+
+    private static Path getCollectionPath(Zebedee zebedee, String name) {
+        return zebedee.getCollections().path.resolve(name);
+    }
+
+    private static Path getCollectionJsonPath(Zebedee zebedee, String name) {
+        return zebedee.getCollections().path.resolve(name + ".json");
     }
 
     private static Release getPublishedRelease(String uri, Zebedee zebedee) throws IOException, ZebedeeException {
@@ -916,6 +987,69 @@ public class Collection {
     }
 
     /**
+     * Delete a data.json page and any related/generated files.
+     * <p>
+     * Delete the specified data.json and any other files in the same directory - non data.json files in the same
+     * directory are supplimentary files related to the page content - tables, charts, images etc. Also deletes any
+     * files in the reviewed dir that are version URIs and start with the same dir path.
+     *
+     * @return true the delete is successful, false otherwise.
+     */
+    public boolean deleteFileAndRelated(String uri) throws IOException {
+        boolean deleteSuccessful = false;
+
+        String checkURI = uri;
+        if (Content.isDataJsonFile(uri)) {
+            checkURI = Paths.get(uri).getParent().toString();
+        }
+
+        if (isInProgress(checkURI)) {
+            deleteSuccessful = inProgress.deleteContentJson(uri);
+        } else if (isComplete(checkURI)) {
+            deleteSuccessful = complete.deleteContentJson(uri);
+        } else if (isReviewed(checkURI)) {
+            deleteSuccessful = reviewed.deleteContentJson(uri);
+        }
+
+        if (deleteSuccessful) {
+            deleteSuccessful &= deleteRelatedVersionedContent(uri);
+        }
+
+        return deleteSuccessful;
+    }
+
+    /**
+     * Delete all previous version content that is a child of the privided URI from the collection reviewed dir.
+     * <p>
+     * When new version of certain content types is created the previous versions are automagically
+     * calculated and put straight into reviewed state. Previous versions are not visible via Florence so if the
+     * newly created version is delete from the collection we need to tidy up these files as they can block users
+     * from appoving the collection or adding the same content again.
+     *
+     * @param uri
+     * @return
+     * @throws IOException
+     */
+    private boolean deleteRelatedVersionedContent(String uri) throws IOException {
+        boolean deleteSuccessful = true;
+
+        List<String> versionedFiles = reviewedUris()
+                .stream()
+                .filter(contentURI -> contentURI.startsWith(contentURI) && isVersionedUri(contentURI))
+                .collect(Collectors.toList());
+
+        if (!versionedFiles.isEmpty()) {
+            info().data("files", versionedFiles).data("uri", uri).log("deleting generated previous version files for uri");
+
+            for (String f : versionedFiles) {
+                deleteSuccessful &= deleteFile(f);
+            }
+        }
+
+        return deleteSuccessful;
+    }
+
+    /**
      * Delete all the content files in the directory of the given file.
      *
      * @param uri
@@ -1249,11 +1383,6 @@ public class Collection {
         return true;
     }
 
-    public Content getInProgress() {
-        return inProgress;
-    }
-
-
     /**
      * Return true if this collection has had all of its content reviewed.
      */
@@ -1346,6 +1475,18 @@ public class Collection {
         }
 
         return conflictLogMap;
+    }
+
+    public Content getReviewed() {
+        return this.reviewed;
+    }
+
+    public Content getComplete() {
+        return this.complete;
+    }
+
+    public Content getInProgress() {
+        return this.inProgress;
     }
 }
 

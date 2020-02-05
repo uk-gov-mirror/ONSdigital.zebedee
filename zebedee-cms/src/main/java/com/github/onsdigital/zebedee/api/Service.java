@@ -10,7 +10,7 @@ import com.github.onsdigital.zebedee.model.ServiceAccountWithToken;
 import com.github.onsdigital.zebedee.permissions.service.PermissionsService;
 import com.github.onsdigital.zebedee.service.ServiceStore;
 import com.github.onsdigital.zebedee.session.model.Session;
-import com.github.onsdigital.zebedee.session.service.SessionsService;
+import com.github.onsdigital.zebedee.session.service.Sessions;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -21,7 +21,7 @@ import java.util.function.Supplier;
 import static com.github.onsdigital.zebedee.configuration.CMSFeatureFlags.cmsFeatureFlags;
 import static com.github.onsdigital.logging.v2.event.SimpleEvent.warn;
 import static com.github.onsdigital.logging.v2.event.SimpleEvent.info;
-import static com.github.onsdigital.zebedee.util.JsonUtils.writeResponse;
+import static com.github.onsdigital.zebedee.util.JsonUtils.writeResponseEntity;
 import static org.apache.http.HttpStatus.SC_CREATED;
 import static org.apache.http.HttpStatus.SC_NOT_FOUND;
 
@@ -32,7 +32,7 @@ public class Service {
 
     private Supplier<String> randomIdGenerator = () -> Random.id();
     private ServiceStore serviceStore;
-    private SessionsService sessionsService;
+    private Sessions sessions;
     private PermissionsService permissionsService;
     private boolean datasetImportEnabled;
 
@@ -58,19 +58,19 @@ public class Service {
         // FIXME CMD feature.
         if (!datasetImportEnabled) {
             warn().data("responseStatus", SC_NOT_FOUND).log("service post endpoint: endpoint is not supported as feature EnableDatasetImport is disabled");
-            writeResponse(response, NOT_FOUND_ERR, SC_NOT_FOUND);
+            writeResponseEntity(response, NOT_FOUND_ERR, SC_NOT_FOUND);
             return;
         }
 
         info().log("feature EnableDatasetImport is enabled");
 
-        final Session session = getSessionsService().get(request);
+        final Session session = getSessions().get(request);
         if (session != null && getPermissionsService().isAdministrator(session)) {
             final ServiceStore serviceStoreImpl = getServiceStore();
             final String token = randomIdGenerator.get();
             ServiceAccount service = serviceStoreImpl.store(token, request.getInputStream());
-            info().data("id", service.getId()).log("service post endpoint: new service account created");
-            writeResponse(response, new ServiceAccountWithToken(service.getId(), token), SC_CREATED);
+            info().data("id", service.getID()).log("service post endpoint: new service account created");
+            writeResponseEntity(response, new ServiceAccountWithToken(service.getID(), token), SC_CREATED);
             return;
         }
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
@@ -83,11 +83,11 @@ public class Service {
         return serviceStore;
     }
 
-    private SessionsService getSessionsService() {
-        if (sessionsService == null) {
-            sessionsService = Root.zebedee.getSessionsService();
+    private Sessions getSessions() {
+        if (sessions == null) {
+            sessions = Root.zebedee.getSessions();
         }
-        return sessionsService;
+        return sessions;
     }
 
     private PermissionsService getPermissionsService() {

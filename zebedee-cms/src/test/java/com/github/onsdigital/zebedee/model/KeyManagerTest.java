@@ -3,15 +3,13 @@ package com.github.onsdigital.zebedee.model;
 import com.github.onsdigital.zebedee.Zebedee;
 import com.github.onsdigital.zebedee.json.CollectionDescription;
 import com.github.onsdigital.zebedee.json.Keyring;
-import com.github.onsdigital.zebedee.LoggingTestHelper;
-import com.github.onsdigital.zebedee.user.model.User;
-import com.github.onsdigital.zebedee.user.model.UserList;
 import com.github.onsdigital.zebedee.permissions.service.PermissionsServiceImpl;
 import com.github.onsdigital.zebedee.service.ServiceSupplier;
-import com.github.onsdigital.zebedee.user.service.UsersService;
 import com.github.onsdigital.zebedee.session.model.Session;
-import com.github.onsdigital.zebedee.session.service.SessionsService;
-import org.junit.BeforeClass;
+import com.github.onsdigital.zebedee.session.service.Sessions;
+import com.github.onsdigital.zebedee.user.model.User;
+import com.github.onsdigital.zebedee.user.model.UserList;
+import com.github.onsdigital.zebedee.user.service.UsersService;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -24,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -59,7 +56,7 @@ public class KeyManagerTest {
     private Keyring keyring, userKeyring, user2Keyring;
 
     @Mock
-    private SessionsService sessionsService;
+    private Sessions sessions;
 
     @Mock
     private Session session, user2Session;
@@ -82,11 +79,6 @@ public class KeyManagerTest {
     @Mock
     private Map<String, SecretKey> schedulerCache;
 
-    @BeforeClass
-    public static void setUpLogger() {
-        LoggingTestHelper.initDPLogger(KeyManagerTest.class);
-    }
-
     @Before
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
@@ -103,8 +95,8 @@ public class KeyManagerTest {
 
         when(zebedee.getUsersService())
                 .thenReturn(usersService);
-        when(zebedee.getSessionsService())
-                .thenReturn(sessionsService);
+        when(zebedee.getSessions())
+                .thenReturn(sessions);
         when(zebedee.getKeyringCache())
                 .thenReturn(keyringCache);
         when(zebedee.getPermissionsService())
@@ -135,7 +127,7 @@ public class KeyManagerTest {
     public void assignKeyToUser_Success() throws Exception {
         when(user.keyring())
                 .thenReturn(keyring);
-        when(sessionsService.find(EMAIL))
+        when(sessions.find(EMAIL))
                 .thenReturn(session);
 
         when(keyringCache.get(session))
@@ -147,7 +139,7 @@ public class KeyManagerTest {
         verify(user, times(2)).getEmail();
         verify(zebedee, times(1)).getUsersService();
         verify(usersService, times(1)).addKeyToKeyring(EMAIL, COLLECTION_ID, secretKey);
-        verify(zebedee, times(1)).getSessionsService();
+        verify(zebedee, times(1)).getSessions();
         verify(zebedee, times(1)).getKeyringCache();
         verify(keyringCache, times(1)).get(session);
         verify(keyring, times(1)).put(COLLECTION_ID, secretKey);
@@ -169,7 +161,7 @@ public class KeyManagerTest {
         verify(zebedee, times(1)).getUsersService();
         verify(usersService, times(1)).list();
         verifyNoMoreInteractions(zebedee, usersService);
-        verifyZeroInteractions(permissionsServiceImpl, keyringCache, keyring, sessionsService, secretKey);
+        verifyZeroInteractions(permissionsServiceImpl, keyringCache, keyring, sessions, secretKey);
     }
 
     @Test
@@ -188,7 +180,7 @@ public class KeyManagerTest {
         verify(zebedee, times(1)).getUsersService();
         verify(usersService, times(1)).list();
         verifyNoMoreInteractions(zebedee, usersService);
-        verifyZeroInteractions(permissionsServiceImpl, keyringCache, keyring, sessionsService, secretKey);
+        verifyZeroInteractions(permissionsServiceImpl, keyringCache, keyring, sessions, secretKey);
     }
 
     @Test
@@ -204,7 +196,7 @@ public class KeyManagerTest {
                 .thenReturn(false);
         when(permissionsServiceImpl.canEdit(EMAIL))
                 .thenReturn(false);
-        when(sessionsService.find(EMAIL))
+        when(sessions.find(EMAIL))
                 .thenReturn(session);
         when(keyringCache.get(session))
                 .thenReturn(keyring);
@@ -213,7 +205,7 @@ public class KeyManagerTest {
 
         verify(zebedee, times(2)).getUsersService();
         verify(zebedee, times(2)).getPermissionsService();
-        verify(zebedee, times(1)).getSessionsService();
+        verify(zebedee, times(1)).getSessions();
         verify(zebedee, times(1)).getKeyringCache();
         verify(permissionsServiceImpl, times(1)).isAdministrator(EMAIL);
         verify(permissionsServiceImpl, times(1)).canEdit(EMAIL);
@@ -221,10 +213,10 @@ public class KeyManagerTest {
         verify(keyring, times(1)).remove(COLLECTION_ID);
         verify(usersService, times(1)).list();
         verify(usersService, times(1)).removeKeyFromKeyring(EMAIL, COLLECTION_ID);
-        verify(sessionsService, times(1)).find(EMAIL);
+        verify(sessions, times(1)).find(EMAIL);
         verify(user, times(5)).getEmail();
         verify(user, times(1)).keyring();
-        verifyNoMoreInteractions(zebedee, permissionsServiceImpl, usersService, sessionsService, keyringCache, user, keyring, session);
+        verifyNoMoreInteractions(zebedee, permissionsServiceImpl, usersService, sessions, keyringCache, user, keyring, session);
     }
 
     @Test
@@ -238,7 +230,7 @@ public class KeyManagerTest {
                 .thenReturn(true);
         when(permissionsServiceImpl.canEdit(EMAIL))
                 .thenReturn(false);
-        when(sessionsService.find(EMAIL))
+        when(sessions.find(EMAIL))
                 .thenReturn(session);
         when(keyringCache.get(session))
                 .thenReturn(keyring);
@@ -249,7 +241,7 @@ public class KeyManagerTest {
 
         verify(zebedee, times(2)).getUsersService();
         verify(zebedee, times(1)).getPermissionsService();
-        verify(zebedee, times(1)).getSessionsService();
+        verify(zebedee, times(1)).getSessions();
         verify(zebedee, times(1)).getKeyringCache();
         verify(permissionsServiceImpl, times(1)).isAdministrator(EMAIL);
         verify(permissionsServiceImpl, never()).canEdit(EMAIL);
@@ -257,10 +249,10 @@ public class KeyManagerTest {
         verify(keyring, times(1)).put(COLLECTION_ID, secretKey);
         verify(usersService, times(1)).list();
         verify(usersService, times(1)).addKeyToKeyring(EMAIL, COLLECTION_ID, secretKey);
-        verify(sessionsService, times(1)).find(EMAIL);
+        verify(sessions, times(1)).find(EMAIL);
         verify(user, times(4)).getEmail();
         verify(user, times(1)).keyring();
-        verifyNoMoreInteractions(zebedee, permissionsServiceImpl, usersService, sessionsService, keyringCache, user, keyring, session);
+        verifyNoMoreInteractions(zebedee, permissionsServiceImpl, usersService, sessions, keyringCache, user, keyring, session);
     }
 
     @Test
@@ -298,8 +290,8 @@ public class KeyManagerTest {
         KeyManager.transferKeyring(target, source);
 
         verify(source, times(1)).list();
-        verify(source,times(1)).get(COLLECTION_ID);
-        verify(target,times(1)).put(COLLECTION_ID, secretKey);
+        verify(source, times(1)).get(COLLECTION_ID);
+        verify(target, times(1)).put(COLLECTION_ID, secretKey);
     }
 
     @Test
@@ -312,7 +304,7 @@ public class KeyManagerTest {
                 .thenReturn(false);
         when(permissionsServiceImpl.canView(user, collectionDescription))
                 .thenReturn(false);
-        when(sessionsService.find(EMAIL))
+        when(sessions.find(EMAIL))
                 .thenReturn(session);
         when(user.keyring())
                 .thenReturn(keyring);
@@ -327,8 +319,8 @@ public class KeyManagerTest {
         verify(permissionsServiceImpl, times(1)).canView(user, collectionDescription);
         verify(zebedee, times(1)).getUsersService();
         verify(usersService, times(1)).removeKeyFromKeyring(EMAIL, COLLECTION_ID);
-        verify(zebedee, times(1)).getSessionsService();
-        verify(sessionsService, times(1)).find(EMAIL);
+        verify(zebedee, times(1)).getSessions();
+        verify(sessions, times(1)).find(EMAIL);
         verify(keyring, times(1)).remove(COLLECTION_ID);
     }
 
@@ -340,7 +332,7 @@ public class KeyManagerTest {
                 .thenReturn(secretKey);
         when(permissionsServiceImpl.isAdministrator(EMAIL))
                 .thenReturn(true);
-        when(sessionsService.find(EMAIL))
+        when(sessions.find(EMAIL))
                 .thenReturn(session);
         when(user.keyring())
                 .thenReturn(keyring);
@@ -351,9 +343,9 @@ public class KeyManagerTest {
         verify(keyringCache, times(2)).get(session);
         verify(keyring, times(1)).get(COLLECTION_ID);
         verify(user, times(1)).keyring();
-        verify(zebedee, times(1)).getSessionsService();
+        verify(zebedee, times(1)).getSessions();
         verify(usersService, times(1)).addKeyToKeyring(EMAIL, COLLECTION_ID, secretKey);
-        verify(sessionsService, times(1)).find(EMAIL);
+        verify(sessions, times(1)).find(EMAIL);
         verify(keyring, times(1)).put(COLLECTION_ID, secretKey);
     }
 
@@ -374,9 +366,9 @@ public class KeyManagerTest {
                 .thenReturn(permissionsServiceImpl);
         when(permissionsServiceImpl.getCollectionAccessMapping(collection))
                 .thenReturn(keyRecipients);
-        when(zebedee.getSessionsService())
-                .thenReturn(sessionsService);
-        when(sessionsService.find(EMAIL))
+        when(zebedee.getSessions())
+                .thenReturn(sessions);
+        when(sessions.find(EMAIL))
                 .thenReturn(session);
 
         KeyManager.distributeCollectionKey(zebedee, session, collection, true);
@@ -386,7 +378,7 @@ public class KeyManagerTest {
         verify(usersService, never()).addKeyToKeyring(USER2_EMAIL, COLLECTION_ID, secretKey);
         verify(keyring, times(1)).put(COLLECTION_ID, secretKey);
 
-        verify(sessionsService, never()).find(USER2_EMAIL);
+        verify(sessions, never()).find(USER2_EMAIL);
         verify(user2Keyring, never()).put(COLLECTION_ID, secretKey);
     }
 
@@ -407,7 +399,7 @@ public class KeyManagerTest {
                 .thenReturn(null);
         when(usersService.list())
                 .thenReturn(users);
-        when(sessionsService.find(EMAIL))
+        when(sessions.find(EMAIL))
                 .thenReturn(session);
         when(keyringCache.getSchedulerCache())
                 .thenReturn(schedulerCache);
@@ -419,7 +411,7 @@ public class KeyManagerTest {
         verify(zebedee, times(1)).getPermissionsService();
         verify(permissionsServiceImpl, times(1)).getCollectionAccessMapping(collection);
         verify(usersService, never()).removeKeyFromKeyring(EMAIL, COLLECTION_ID);
-        verify(sessionsService, never()).find(EMAIL);
+        verify(sessions, never()).find(EMAIL);
         verify(keyring, never()).put(COLLECTION_ID, secretKey);
         verify(schedulerCache, times(1)).put(COLLECTION_ID, secretKey);
     }
@@ -448,9 +440,9 @@ public class KeyManagerTest {
                 .thenReturn(permittedUsers);
         when(usersService.list())
                 .thenReturn(allUsers);
-        when(sessionsService.find(EMAIL))
+        when(sessions.find(EMAIL))
                 .thenReturn(session);
-        when(sessionsService.find(USER2_EMAIL))
+        when(sessions.find(USER2_EMAIL))
                 .thenReturn(user2Session);
         when(keyringCache.getSchedulerCache())
                 .thenReturn(schedulerCache);
@@ -460,8 +452,8 @@ public class KeyManagerTest {
         verify(zebedee, times(4)).getKeyringCache();
         verify(zebedee, times(1)).getPermissionsService();
         verify(permissionsServiceImpl, times(1)).getCollectionAccessMapping(collection);
-        verify(sessionsService, times(1)).find(EMAIL);
-        verify(sessionsService, times(1)).find(USER2_EMAIL);
+        verify(sessions, times(1)).find(EMAIL);
+        verify(sessions, times(1)).find(USER2_EMAIL);
         verify(usersService, times(1)).removeKeyFromKeyring(EMAIL, COLLECTION_ID);
         verify(usersService, times(1)).addKeyToKeyring(USER2_EMAIL, COLLECTION_ID, secretKey);
         verify(keyring, times(1)).remove(COLLECTION_ID);
@@ -486,7 +478,7 @@ public class KeyManagerTest {
                 .thenReturn(users);
         when(usersService.list())
                 .thenReturn(users);
-        when(sessionsService.find(EMAIL))
+        when(sessions.find(EMAIL))
                 .thenReturn(session);
         when(keyringCache.getSchedulerCache())
                 .thenReturn(schedulerCache);
@@ -499,7 +491,7 @@ public class KeyManagerTest {
         verify(zebedee, times(1)).getPermissionsService();
         verify(permissionsServiceImpl, times(1)).getCollectionAccessMapping(collection);
         verify(usersService, never()).removeKeyFromKeyring(EMAIL, COLLECTION_ID);
-        verify(sessionsService, times(1)).find(EMAIL);
+        verify(sessions, times(1)).find(EMAIL);
         verify(keyring, times(1)).put(COLLECTION_ID, secretKey);
         verify(schedulerCache, times(1)).put(COLLECTION_ID, secretKey);
     }

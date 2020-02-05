@@ -13,7 +13,6 @@ import com.github.onsdigital.zebedee.json.CollectionDescription;
 import com.github.onsdigital.zebedee.json.CollectionType;
 import com.github.onsdigital.zebedee.json.Event;
 import com.github.onsdigital.zebedee.json.EventType;
-import com.github.onsdigital.zebedee.LoggingTestHelper;
 import com.github.onsdigital.zebedee.model.approval.ApproveTask;
 import com.github.onsdigital.zebedee.model.publishing.PublishNotification;
 import com.github.onsdigital.zebedee.permissions.service.PermissionsService;
@@ -26,7 +25,6 @@ import com.github.onsdigital.zebedee.session.model.Session;
 import com.github.onsdigital.zebedee.user.model.User;
 import com.github.onsdigital.zebedee.user.service.UsersService;
 import org.apache.commons.fileupload.FileUploadException;
-import org.junit.BeforeClass;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -40,9 +38,9 @@ import javax.servlet.http.HttpServletRequest;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -53,6 +51,7 @@ import java.util.function.Supplier;
 
 import static com.github.onsdigital.zebedee.persistence.CollectionEventType.COLLECTION_DELETED;
 import static com.github.onsdigital.zebedee.persistence.CollectionEventType.COLLECTION_UNLOCKED;
+import static junit.framework.TestCase.assertTrue;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -65,7 +64,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 
@@ -137,11 +135,6 @@ public class CollectionsTest {
     private Supplier<Zebedee> zebedeeSupplier;
     private BiConsumer<Collection, EventType> publishingNotificationConsumer;
     private Supplier<CollectionHistoryDao> collectionHistoryDaoSupplier;
-
-    @BeforeClass
-    public static void setUpLogger() {
-        LoggingTestHelper.initDPLogger(CollectionsTest.class);
-    }
 
     @Before
     public void setUp() throws IOException {
@@ -964,33 +957,6 @@ public class CollectionsTest {
     }
 
     @Test
-    public void shouldDeleteFile() throws IOException, ZebedeeException {
-        Path uri = rootDir.newFile("data.json").toPath();
-
-        when(permissionsServiceMock.canEdit(TEST_EMAIL))
-                .thenReturn(true);
-        when(collectionMock.find(uri.toString()))
-                .thenReturn(uri);
-        when(collectionMock.isInCollection(uri.toString()))
-                .thenReturn(true);
-        when(collectionMock.deleteFile(uri.toString()))
-                .thenReturn(true);
-
-
-        assertThat(collections.deleteContent(collectionMock, uri.toString(), sessionMock), is(true));
-
-        verify(permissionsServiceMock, times(1)).canEdit(TEST_EMAIL);
-        verify(collectionMock, times(1)).find(uri.toString());
-        verify(collectionMock, times(1)).isInCollection(uri.toString());
-        verify(collectionMock, times(2)).getDescription();
-        verify(collectionMock, never()).deleteContentDirectory(any(), any());
-        verify(collectionMock, never()).deleteContentDirectory(anyString(), anyString());
-        verify(collectionMock, times(1)).deleteFile(uri.toString());
-        verify(collectionMock, times(1)).save();
-        verify(collectionHistoryDaoMock, times(1)).saveCollectionHistoryEvent(any(CollectionHistoryEvent.class));
-    }
-
-    @Test
     public void shouldDeleteFolderRecursively() throws IOException, ZebedeeException {
         Path uri = collectionsPath.resolve("inprogress");
         uri.toFile().mkdir();
@@ -1012,7 +978,7 @@ public class CollectionsTest {
         verify(permissionsServiceMock, times(1)).canEdit(TEST_EMAIL);
         verify(collectionMock, times(1)).find(uri.toString());
         verify(collectionMock, times(1)).isInCollection(uri.toString());
-        verify(collectionMock, times(2)).getDescription();
+        verify(collectionMock, times(4)).getDescription();
         /*verify(collectionMock, never()).deleteContentDirectory(any(), any());*/
         verify(collectionMock, times(1)).deleteContentDirectory(TEST_EMAIL, uri.toString());
         verify(collectionMock, never()).deleteFile(uri.toString());
@@ -1061,5 +1027,94 @@ public class CollectionsTest {
             verify(collectionDescriptionMock, times(1)).getName();
             throw e;
         }
+    }
+
+    @Test
+    public void shouldReturnEmptyOrphansListIfAllCollectionsValid() throws Exception {
+        collectionsPath.resolve("c1").toFile().mkdir();
+        collectionsPath.resolve("c1.json").toFile().createNewFile();
+
+        collectionsPath.resolve("c2").toFile().mkdir();
+        collectionsPath.resolve("c2.json").toFile().createNewFile();
+
+        collectionsPath.resolve("c3").toFile().mkdir();
+        collectionsPath.resolve("c3.json").toFile().createNewFile();
+
+        assertTrue(collections.listOrphaned().isEmpty());
+    }
+
+    @Test
+    public void shouldReturnExpectedOrphansList() throws Exception {
+        collectionsPath.resolve("c1").toFile().mkdir();
+        collectionsPath.resolve("c1.json").toFile().createNewFile();
+
+        // create 2 collection dirs without the corresoinding json files.
+        collectionsPath.resolve("c2").toFile().mkdir();
+        collectionsPath.resolve("c3").toFile().mkdir();
+
+        List<String> orphans = collections.listOrphaned();
+
+        assertThat("incorrect number of orphans returned", orphans.size(), equalTo(2));
+        assertThat("incorrect number of orphans returned", orphans, equalTo(
+                new ArrayList() {{
+                    add("c2");
+                    add("c3");
+                }})
+        );
+    }
+
+    @Test
+    public void deleteContentShouldDeleteDataVizZip() throws IOException, ZebedeeException {
+        Path colDir = collectionsPath.resolve("abc/inprogress/visualisations/dvc123");
+        assertTrue(colDir.toFile().mkdirs());
+
+        Path filePath = colDir.resolve("dvc123.zip");
+        filePath.toFile().createNewFile();
+
+        assertTrue(Files.exists(filePath));
+
+        when(permissionsServiceMock.canEdit(TEST_EMAIL))
+                .thenReturn(true);
+
+        when(collectionMock.find(filePath.toString()))
+                .thenReturn(collectionsPath.resolve(filePath));
+
+        when(collectionMock.isInCollection(filePath.toString()))
+                .thenReturn(true);
+
+        when(collectionMock.deleteDataVisContent(sessionMock, filePath))
+                .thenAnswer(i -> Files.deleteIfExists(filePath));
+
+        boolean deleteSuccessful = collections.deleteContent(collectionMock, filePath.toString(), sessionMock);
+
+        assertTrue(deleteSuccessful);
+        assertThat(collectionsPath.resolve("abc/inprogress").toFile().list().length, equalTo(0));
+    }
+
+    @Test
+    public void shouldDeleteDataJsonAndSupplementaryFiles() throws IOException, ZebedeeException {
+        // populate the collection with some content.
+        Path inprogress = collectionsPath.resolve("col1/inprogress/aboutus");
+        assertTrue(inprogress.toFile().mkdirs());
+
+        Path uri = inprogress.resolve("data.json");
+        assertTrue(uri.toFile().createNewFile());
+
+        when(permissionsServiceMock.canEdit(TEST_EMAIL))
+                .thenReturn(true);
+
+        when(collectionMock.find(uri.toString()))
+                .thenReturn(collectionsPath.resolve(uri));
+
+        when(collectionMock.isInCollection(uri.toString()))
+                .thenReturn(true);
+
+        when(collectionMock.deleteFileAndRelated(uri.toString()))
+                .thenAnswer(i -> Files.deleteIfExists(uri));
+
+        boolean deleteSuccessful = collections.deleteContent(collectionMock, uri.toString(), sessionMock);
+
+        assertTrue(deleteSuccessful);
+        assertThat(collectionsPath.resolve("col1/inprogress").toFile().list().length, equalTo(0));
     }
 }

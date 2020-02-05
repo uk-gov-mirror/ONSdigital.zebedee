@@ -6,11 +6,16 @@ import com.github.davidcarboni.restolino.json.Serialiser;
 import com.github.onsdigital.zebedee.api.ClickEventLog;
 import com.github.onsdigital.zebedee.api.CsdbKey;
 import com.github.onsdigital.zebedee.api.CsdbNotify;
+import com.github.onsdigital.zebedee.api.Health;
 import com.github.onsdigital.zebedee.api.Identity;
 import com.github.onsdigital.zebedee.api.Login;
 import com.github.onsdigital.zebedee.api.Password;
 import com.github.onsdigital.zebedee.api.Ping;
 import com.github.onsdigital.zebedee.api.Root;
+import com.github.onsdigital.zebedee.api.cmd.ServiceDatasetPermissions;
+import com.github.onsdigital.zebedee.api.cmd.ServiceInstancePermissions;
+import com.github.onsdigital.zebedee.api.cmd.UserDatasetPermissions;
+import com.github.onsdigital.zebedee.api.cmd.UserInstancePermissions;
 import com.github.onsdigital.zebedee.search.api.endpoint.ReIndex;
 import com.github.onsdigital.zebedee.session.model.Session;
 import com.google.common.collect.ImmutableList;
@@ -35,6 +40,11 @@ public class AuthenticationFilter implements PreFilter {
             .add(Ping.class)
             .add(ClickEventLog.class)
             .add(Identity.class)
+            .add(UserDatasetPermissions.class)
+            .add(UserInstancePermissions.class)
+            .add(ServiceDatasetPermissions.class)
+            .add(ServiceInstancePermissions.class)
+            .add(Health.class)
             .build();
 
     /**
@@ -66,7 +76,7 @@ public class AuthenticationFilter implements PreFilter {
         // Check all other requests:
         boolean result = false;
         try {
-            Session session = Root.zebedee.getSessionsService().get(request);
+            Session session = Root.zebedee.getSessions().get(request);
             if (session == null) {
                 forbidden(response);
             } else {

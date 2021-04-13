@@ -6,6 +6,7 @@ import com.github.onsdigital.zebedee.exceptions.NotFoundException;
 import com.github.onsdigital.zebedee.exceptions.UnauthorizedException;
 import com.github.onsdigital.zebedee.json.ApprovalStatus;
 import com.github.onsdigital.zebedee.json.CollectionType;
+import com.github.onsdigital.zebedee.keyring.cache.SchedulerKeyCache;
 import com.github.onsdigital.zebedee.model.Collection;
 import com.github.onsdigital.zebedee.model.ZebedeeCollectionReader;
 import com.github.onsdigital.zebedee.model.publishing.PostPublisher;
@@ -27,8 +28,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import static com.github.onsdigital.logging.v2.event.SimpleEvent.info;
 import static com.github.onsdigital.logging.v2.event.SimpleEvent.error;
+import static com.github.onsdigital.logging.v2.event.SimpleEvent.info;
 
 /**
  * A scheduled task to run the pre-publish process for a number of collections.
@@ -39,6 +40,7 @@ public class PrePublishCollectionsTask extends ScheduledTask {
 
     private final Set<String> collectionIds; // The list of collections ID's used in the task.
     private final Zebedee zebedee;
+    private final SchedulerKeyCache schedulerKeyCache;
     private final Date publishDate; // the date of the actual publish, NOT the prepublish date associated with this task.
     private PublishScheduler publishScheduler;
 
@@ -48,7 +50,9 @@ public class PrePublishCollectionsTask extends ScheduledTask {
      * @param zebedee     The instance of Zebedee this task will run under.
      * @param publishDate The date the actual publish is scheduled for.
      */
-    public PrePublishCollectionsTask(Zebedee zebedee, Date publishDate, PublishScheduler publishScheduler) {
+    public PrePublishCollectionsTask(Zebedee zebedee, SchedulerKeyCache schedulerKeyCache, Date publishDate,
+                                     PublishScheduler publishScheduler) {
+        this.schedulerKeyCache = schedulerKeyCache;
         this.publishDate = publishDate;
         this.publishScheduler = publishScheduler;
         this.collectionIds = new HashSet<>();
@@ -143,7 +147,7 @@ public class PrePublishCollectionsTask extends ScheduledTask {
                                 .log("PRE-PUBLISH: creating collection publish task");
 
                         // FIXME using PostPublisher.getPublishedCollection feels a bit hacky
-                        SlackNotification.publishNotification(PostPublisher.getPublishedCollection(collection),SlackNotification.CollectionStage.PRE_PUBLISH, SlackNotification.StageStatus.STARTED);
+                        SlackNotification.publishNotification(PostPublisher.getPublishedCollection(collection), SlackNotification.CollectionStage.PRE_PUBLISH, SlackNotification.StageStatus.STARTED);
 
                         // begin the publish ahead of time. This creates the transaction on the train.
                         Map<String, String> hostToTransactionIdMap = Publisher.createPublishingTransactions(collection);
@@ -151,7 +155,7 @@ public class PrePublishCollectionsTask extends ScheduledTask {
                         // send versioned files manifest ahead of time. allowing files to be copied from the website into the transaction.
                         Publisher.sendManifest(collection);
 
-                        SecretKey key = zebedee.getLegacyKeyringCache().getSchedulerCache().get(collection.getDescription().getId());
+                        SecretKey key = schedulerKeyCache.get(collection.getDescription().getId());
                         ZebedeeCollectionReader collectionReader = new ZebedeeCollectionReader(collection, key);
                         PublishCollectionTask publishCollectionTask = new PublishCollectionTask(collection, collectionReader, hostToTransactionIdMap);
 
@@ -166,7 +170,7 @@ public class PrePublishCollectionsTask extends ScheduledTask {
                     } catch (BadRequestException | IOException | UnauthorizedException | NotFoundException e) {
                         // FIXME using PostPublisher.getPublishedCollection feels a bit hacky
                         // TODO pass through the error?
-                        SlackNotification.publishNotification(PostPublisher.getPublishedCollection(collection), SlackNotification.CollectionStage.PRE_PUBLISH,SlackNotification.StageStatus.FAILED);
+                        SlackNotification.publishNotification(PostPublisher.getPublishedCollection(collection), SlackNotification.CollectionStage.PRE_PUBLISH, SlackNotification.StageStatus.FAILED);
 
                         error().logException(e, "PRE-PUBLISH: error when creating collection publish task");
                         return false;

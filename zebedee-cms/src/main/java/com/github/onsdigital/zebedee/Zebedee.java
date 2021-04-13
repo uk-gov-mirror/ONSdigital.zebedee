@@ -8,6 +8,7 @@ import com.github.onsdigital.zebedee.exceptions.ZebedeeException;
 import com.github.onsdigital.zebedee.json.Credentials;
 import com.github.onsdigital.zebedee.keyring.Keyring;
 import com.github.onsdigital.zebedee.keyring.KeyringException;
+import com.github.onsdigital.zebedee.keyring.cache.SchedulerKeyCache;
 import com.github.onsdigital.zebedee.model.Collection;
 import com.github.onsdigital.zebedee.model.Collections;
 import com.github.onsdigital.zebedee.model.Content;
@@ -78,6 +79,7 @@ public class Zebedee {
     private final Path path;
     private final PermissionsService permissionsService;
     private final Keyring collectionKeyring;
+    private final SchedulerKeyCache schedulerKeyCache;
     private final EncryptionKeyFactory encryptionKeyFactory;
 
     private final UsersService usersService;
@@ -111,6 +113,7 @@ public class Zebedee {
         this.imageService = configuration.getImageService();
         this.serviceStoreImpl = configuration.getServiceStore();
         this.collectionKeyring = configuration.getCollectionKeyring();
+        this.schedulerKeyCache = configuration.getSchedulerKeyCache();
         this.encryptionKeyFactory = configuration.getEncryptionKeyFactory();
 
         this.collectionsPath = configuration.getCollectionsPath();
@@ -404,6 +407,10 @@ public class Zebedee {
 
     public Keyring getCollectionKeyring() {
         return this.collectionKeyring;
+    }
+
+    public SchedulerKeyCache getSchedulerKeyCache() {
+        return this.schedulerKeyCache;
     }
 
     public EncryptionKeyFactory getEncryptionKeyFactory() {

@@ -68,7 +68,7 @@ public class PublishScheduler extends Scheduler {
         if (prePublishTasks.containsKey(publishStartDate)) {
             task = prePublishTasks.get(publishStartDate);
         } else {
-            task = new PrePublishCollectionsTask(zebedee, publishStartDate, this);
+            task = new PrePublishCollectionsTask(zebedee, zebedee.getSchedulerKeyCache(), publishStartDate, this);
             task.schedule(prePublishStartDate);
             prePublishTasks.put(publishStartDate, task);
         }

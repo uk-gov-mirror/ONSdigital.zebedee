@@ -23,14 +23,19 @@ import static com.github.onsdigital.logging.v2.event.SimpleEvent.info;
  */
 public class Keyring implements Cloneable {
 
-    private transient Map<String, SecretKey> keys = new ConcurrentHashMap<>();
+    private transient Map<String, SecretKey> keys;
     // Key storage:
     private String privateKeySalt;
     private String privateKey;
     private String publicKey;
-    private Map<String, String> keyring = new ConcurrentHashMap<>();
+    private Map<String, String> keyring;
     // Runtime cache of decrypted keys:
     private transient KeyPair keyPair;
+
+    public Keyring() {
+        this.keys = new ConcurrentHashMap<>();
+        this.keyring = new ConcurrentHashMap<>();
+    }
 
     /**
      * Generates a new {@link KeyPair} and initialises an empty keyring.

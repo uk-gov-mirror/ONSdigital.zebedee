@@ -3,6 +3,7 @@ package com.github.onsdigital.zebedee;
 import com.github.onsdigital.zebedee.json.CollectionDescription;
 import com.github.onsdigital.zebedee.json.Credentials;
 import com.github.onsdigital.zebedee.keyring.Keyring;
+import com.github.onsdigital.zebedee.keyring.cache.SchedulerKeyCache;
 import com.github.onsdigital.zebedee.model.Collection;
 import com.github.onsdigital.zebedee.model.KeyringCache;
 import com.github.onsdigital.zebedee.model.encryption.ApplicationKeys;
@@ -85,6 +86,9 @@ public abstract class ZebedeeTestBaseFixture {
     protected PermissionsService permissionsService;
 
     @Mock
+    private SchedulerKeyCache schedulerKeyCache;
+
+    @Mock
     protected Session userSession;
 
     @Mock
@@ -113,7 +117,7 @@ public abstract class ZebedeeTestBaseFixture {
         ReflectionTestUtils.setField(zebedee.getPermissionsService(), "usersServiceSupplier", usersServiceServiceSupplier);
 
         ReflectionTestUtils.setField(zebedee, "sessions", sessionsService);
-        ReflectionTestUtils.setField(zebedee, "legacyKeyringCache", new KeyringCache(sessionsService));
+        ReflectionTestUtils.setField(zebedee, "legacyKeyringCache", new KeyringCache(sessionsService, schedulerKeyCache));
         ReflectionTestUtils.setField(zebedee, "collectionKeyring", collectionKeyring);
         ReflectionTestUtils.setField(zebedee, "encryptionKeyFactory", encryptionKeyFactory);
 

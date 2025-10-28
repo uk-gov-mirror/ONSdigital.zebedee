@@ -458,7 +458,8 @@ public class FileSystemContentReader implements ContentReader {
         ReaderConfiguration cfg = ReaderConfiguration.get();
         if (cfg.getBulletinsFolderName().equals(fileName) ||
                 cfg.getArticlesFolderName().equals(fileName) ||
-                cfg.getCompendiumFolderName().equals(fileName)) {
+                cfg.getCompendiumFolderName().equals(fileName) ||
+                cfg.getTimeseriesFolderName().equals(fileName)) {
             return;
         }
         throw new BadRequestException("Latest uri can not be resolved for this content type");

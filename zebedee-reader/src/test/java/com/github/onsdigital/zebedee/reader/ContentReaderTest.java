@@ -7,6 +7,7 @@ import com.github.onsdigital.zebedee.content.page.staticpage.StaticPage;
 import com.github.onsdigital.zebedee.content.page.statistics.document.figure.chart.Chart;
 import com.github.onsdigital.zebedee.content.page.statistics.document.figure.table.Table;
 import com.github.onsdigital.zebedee.exceptions.NotFoundException;
+import com.github.onsdigital.zebedee.exceptions.BadRequestException;
 import com.github.onsdigital.zebedee.exceptions.ZebedeeException;
 import com.github.onsdigital.zebedee.content.base.ContentLanguage;
 
@@ -195,6 +196,13 @@ public class ContentReaderTest {
     }
 
     @Test
+    public void testGetLatestTimeseries() throws ZebedeeException, IOException {
+        Page latestContent = contentReader.getLatestContent("/economy/grossdomesticproductgdp/timeseries/ihyq");
+        assertEquals(PageType.TIMESERIES, latestContent.getType());
+        assertEquals(true, latestContent.getDescription().isLatestRelease());
+    }
+
+    @Test
     public void testGetLatestContentMigration() throws ZebedeeException, IOException {
         Page latestContent = contentReader.getLatestContent("/economy/environmentalaccounts/articles/uknaturalcapitallandcoverintheuk");
         assertEquals(false, latestContent.getDescription().isLatestRelease());
@@ -204,6 +212,11 @@ public class ContentReaderTest {
     public void testGetLatestContentMigrationWhenLatestReleaseSet() throws ZebedeeException, IOException {
         Page latestContent = contentReader.getLatestContent("/peoplepopulationandcommunity/culturalidentity/ethnicity/bulletins/detailedcharacteristicsforenglandandwales");
         assertEquals(false, latestContent.getDescription().isLatestRelease());
+    }
+
+    @Test(expected = BadRequestException.class)
+    public void testGetLatestForNonEditionsFolder() throws ZebedeeException, IOException {
+        contentReader.getLatestContent("/economy/environmentalaccounts/datasets");
     }
 
     @Test

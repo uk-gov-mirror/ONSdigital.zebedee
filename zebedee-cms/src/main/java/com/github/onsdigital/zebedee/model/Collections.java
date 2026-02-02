@@ -1051,7 +1051,7 @@ public class Collections {
             return false;
         }
 
-        if (!permissionsService.isPublisher(session)) {
+        if (!permissionsService.canEdit(session)) {
             info().user(session)
                     .reason("publisher permissions required")
                     .log("dataset version validation not bypassed");

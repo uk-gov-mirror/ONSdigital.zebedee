@@ -920,12 +920,29 @@ public class CollectionTest extends ZebedeeTestBaseFixture {
     }
 
     @Test(expected = BadRequestException.class)
-    public void shouldNotSelfApproveForNonAutomatedCollection() throws Exception {
+    public void shouldNotSelfApproveForManualCollection() throws Exception {
 
         // Given a non-automated collection
         collection.getDescription().setType(CollectionType.manual);
         // And a user with the self approve permission
         when(permissionsService.canSelfApprove(publisher1Session, CollectionType.manual))
+                .thenReturn(true);
+        String uri = CreateCompleteContent();
+
+        // When the collection is reviewed
+        collection.review(publisher1Session, uri, recursive);
+
+        // Then
+        // expect a BadRequestException
+    }
+
+    @Test(expected = BadRequestException.class)
+    public void shouldNotSelfApproveForScheduledCollection() throws Exception {
+
+        // Given a non-automated collection
+        collection.getDescription().setType(CollectionType.scheduled);
+        // And a user with the self approve permission
+        when(permissionsService.canSelfApprove(publisher1Session, CollectionType.scheduled))
                 .thenReturn(true);
         String uri = CreateCompleteContent();
 

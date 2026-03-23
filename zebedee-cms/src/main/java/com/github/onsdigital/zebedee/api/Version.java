@@ -92,7 +92,7 @@ public class Version {
 
         Session session = Root.zebedee.getSessions().get();
         if (session == null || !Root.zebedee.getPermissionsService().canEdit(session)) {
-            throw new UnauthorizedException("You are not authorised to edit content.");
+            throw new UnauthorizedException("You are not authorised to delete content.");
         }
 
         Collection collection = Collections.getCollection(request);
@@ -104,7 +104,7 @@ public class Version {
         }
 
         if (!Root.zebedee.getPermissionsService().canEdit(session, collectionDescription.getType())) {
-            throw new ForbiddenException("You are not authorised to edit content for this collection type.");
+            throw new ForbiddenException("You are not authorised to delete content for this collection type.");
         }
 
         try {

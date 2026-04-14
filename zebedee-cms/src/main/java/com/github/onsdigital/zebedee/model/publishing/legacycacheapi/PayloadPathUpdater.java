@@ -48,6 +48,7 @@ public class PayloadPathUpdater {
             }
 
             // Order matters:
+            // TODO: figure out why the order matters and note it here.
 
             // 1. If starts with /visualisation/ then /visualisation/xxx/xxxx ---> /visualisation/xxx (keep 1 segment) - return here
             if (updatedUri.startsWith(VISUALISATIONS_SEGMENT)) {
@@ -70,7 +71,7 @@ public class PayloadPathUpdater {
                 }
             }
 
-            // 3. If bulletin, article or compendia then /xxxx/bulletin/xxxx1/xxxx2/xxxx3 --> /bulletin/xxxx1/xxxx2  (keep 2 segment) & RETURN modified
+            // 3. If bulletin, article or compendia then /xxxx/bulletin/xxxx1/xxxx2/xxxx3 --> /xxxx/bulletin/xxxx1/xxxx2  (keep 2 segment) & RETURN modified
             if (updatedUri.contains(ARTICLE_SEGMENT)) {
                 return URIUtils.getNSegmentsAfterSegmentInput(updatedUri, ARTICLE_SEGMENT, 2);
             }
@@ -80,7 +81,7 @@ public class PayloadPathUpdater {
             if (updatedUri.contains(COMPENDIUM_SEGMENT)) {
                 return URIUtils.getNSegmentsAfterSegmentInput(updatedUri, COMPENDIUM_SEGMENT, 2);
             }
-            // 4. If qmis or adhoc or methodologies then /xxxx/qmis/xxx1/xxx2 --> /qmis/xxx1 & RETURNS modified
+            // 4. If qmis or adhoc or methodologies then /xxxx/qmis/xxx1/xxx2 --> /xxxx/qmis/xxx1 & RETURNS modified
             if (updatedUri.contains(ADHOC_SEGMENT)) {
                 return URIUtils.getNSegmentsAfterSegmentInput(updatedUri, ADHOC_SEGMENT, 1);
             }
@@ -94,6 +95,7 @@ public class PayloadPathUpdater {
             // 5. For the below if (a) is true, skip (b):
             //      (a) If path ends with /data then /xxx1/data/ --> /xxx1
             //      (b) If path ends with filename + extension remove it /xxx/filename.extension --> /xxx
+            // TODO: Why does this not return here? 
             String lastSegment = URIUtils.getLastSegment(updatedUri);
             if (lastSegment != null) {
                 if (lastSegment.equals(DATA_SEGMENT_WITHOUT_SLASH)) {
@@ -104,8 +106,8 @@ public class PayloadPathUpdater {
             }
 
             // 6. If timeseries:
-            //      (a) then /timeseries/xxx --> /xxx or /timeseries/xxx1/xxx2 --> /xxx1/xxx2 (keep up to 2 segments)
-            //      (b) If path ends with /xxx/linechartconfig --> /xxx
+            //      (a) then /xxx/timeseries/xxx1/xxx2/xxx3 --> /xxx/timeseries/xxx1/xxx2 (keep up to 2 segments)
+            //      (b) If path from (a) ends with /xxx/linechartconfig --> /xxx
             //      (c) RETURN modified
             if (updatedUri.contains(TIME_SERIES_SEGMENT)) {
                 updatedUri = URIUtils.getNSegmentsAfterSegmentInput(updatedUri, TIME_SERIES_SEGMENT, 2);
@@ -139,6 +141,10 @@ public class PayloadPathUpdater {
     
     public static boolean isPayloadPathCompendiaLatest(String uriToUpdate) {
         return uriToUpdate != null && uriToUpdate.contains(COMPENDIUM_SEGMENT) && !uriToUpdate.endsWith("/latest");
+    }
+
+    public static String getPathForFile(String uri) {
+        return String.format("/file?uri=%s", uri);
     }
 
     public static String getPathForLatest(String uriToUpdate) {

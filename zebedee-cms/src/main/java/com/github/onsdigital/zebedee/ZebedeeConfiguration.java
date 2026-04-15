@@ -10,6 +10,8 @@ import com.github.onsdigital.dp.image.api.client.ImageClient;
 import com.github.onsdigital.slack.Profile;
 import com.github.onsdigital.slack.client.SlackClient;
 import com.github.onsdigital.slack.client.SlackClientImpl;
+import com.github.onsdigital.dp.permissions.api.sdk.PermissionsClient;
+import com.github.onsdigital.dp.permissions.api.sdk.PermissionsAPIClient;
 import com.github.onsdigital.zebedee.data.processing.DataIndex;
 import com.github.onsdigital.zebedee.kafka.KafkaClient;
 import com.github.onsdigital.zebedee.kafka.KafkaClientImpl;
@@ -186,7 +188,13 @@ public class ZebedeeConfiguration {
         PermissionsStore permissionsStore = new PermissionsStoreFileSystemImpl(permissionsPath);
         if (cmsFeatureFlags().isJwtSessionsEnabled()) {
             if (cmsFeatureFlags().isPermissionsAPIEnabled()) {
-                this.permissionsService = new PermissionsServiceImplementation(getPermissionsApiUrl());
+                try {
+                    PermissionsClient permissionsClient = new PermissionsAPIClient(getPermissionsApiUrl(), getServiceAuthToken());
+                    this.permissionsService = new PermissionsServiceImplementation(permissionsClient, getPermissionsApiUrl());
+                } catch (URISyntaxException e) {
+                    error().logException(e, "failed to initialise dp-permissions-api client - invalid URI");
+                    throw new RuntimeException(e);
+                }
             } else {
                 this.permissionsService = new JWTPermissionsServiceImpl(permissionsStore);
             }

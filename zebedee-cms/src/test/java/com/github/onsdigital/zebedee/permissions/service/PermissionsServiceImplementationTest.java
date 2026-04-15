@@ -2,8 +2,12 @@ package com.github.onsdigital.zebedee.permissions.service;
 
 import com.github.onsdigital.UserDataPayload;
 import com.github.onsdigital.dp.authorisation.permissions.PermissionChecker;
-import com.github.onsdigital.zebedee.permissions.model.Permissions;
+import com.github.onsdigital.dp.permissions.api.sdk.exception.PolicyNotFoundException;
+import com.github.onsdigital.dp.permissions.api.sdk.PermissionsAPIClient;
+import com.github.onsdigital.zebedee.exceptions.InternalServerError;
 import com.github.onsdigital.zebedee.json.CollectionType;
+
+import com.github.onsdigital.zebedee.permissions.model.Permissions;
 import com.github.onsdigital.zebedee.session.model.Session;
 import org.junit.Before;
 import org.junit.Test;
@@ -11,6 +15,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -23,6 +28,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,12 +46,15 @@ public class PermissionsServiceImplementationTest {
     private PermissionChecker permissionChecker;
 
     @Mock
+    private PermissionsAPIClient permissionAPIClient;
+
+    @Mock
     private Session session;
 
     @Before
     public void setUp() throws Exception {
         MockitoAnnotations.openMocks(this);
-        permissionsService = new PermissionsServiceImplementation("http://permissions-api");
+        permissionsService = new PermissionsServiceImplementation(permissionAPIClient, "http://permissions-api");
         setPermissionChecker(permissionsService, permissionChecker);
 
         when(session.getId()).thenReturn(USER_ID);
@@ -157,6 +166,27 @@ public class PermissionsServiceImplementationTest {
                 .thenThrow(new Exception("boom"));
 
         assertThrows(RuntimeException.class, () -> permissionsService.canView(session, COLLECTION_ID));
+    }
+
+    @Test
+    public void removePolicyForCollection_ShouldCallDeletePolicy() throws Exception {
+        permissionsService.removePolicyForCollection(COLLECTION_ID);
+
+        verify(permissionAPIClient, times(1)).deletePolicy(COLLECTION_ID);
+    }   
+
+    @Test
+    public void removePolicyForCollection_ShouldHandlePolicyNotFoundException() throws Exception {
+        doThrow(new PolicyNotFoundException("not found", 404)).when(permissionAPIClient).deletePolicy(COLLECTION_ID);
+        permissionsService.removePolicyForCollection(COLLECTION_ID);
+        verify(permissionAPIClient, times(1)).deletePolicy(COLLECTION_ID);
+    }
+
+    @Test
+    public void removePolicyForCollection_ShouldHandleIOException() throws Exception {
+        doThrow(new IOException("io exception")).when(permissionAPIClient).deletePolicy(COLLECTION_ID);
+        assertThrows(InternalServerError.class, () -> permissionsService.removePolicyForCollection(COLLECTION_ID));
+        verify(permissionAPIClient, times(1)).deletePolicy(COLLECTION_ID);
     }
 
     private void setPermissionChecker(PermissionsServiceImplementation service, PermissionChecker checker) throws Exception {

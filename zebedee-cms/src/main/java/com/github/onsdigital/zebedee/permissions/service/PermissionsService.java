@@ -227,4 +227,13 @@ public interface PermissionsService {
      * @throws IOException If a filesystem error occurs.
      */
     PermissionDefinition userPermissions(Session session) throws IOException;
+
+
+    /** 
+     * Remove a permissions policy for a collection
+     * 
+     * @param collectionId the ID of the collection to remove the permissions policy for.
+     * @throws ZebedeeException if an error occurs while removing the permissions policy.
+     */
+    void removePolicyForCollection(String collectionId) throws ZebedeeException;
 }

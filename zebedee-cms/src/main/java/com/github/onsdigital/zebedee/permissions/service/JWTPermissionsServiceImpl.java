@@ -3,6 +3,7 @@ package com.github.onsdigital.zebedee.permissions.service;
 import com.github.onsdigital.zebedee.exceptions.BadRequestException;
 import com.github.onsdigital.zebedee.exceptions.NotFoundException;
 import com.github.onsdigital.zebedee.exceptions.UnauthorizedException;
+import com.github.onsdigital.zebedee.exceptions.ZebedeeException;
 import com.github.onsdigital.zebedee.json.CollectionType;
 import com.github.onsdigital.zebedee.json.PermissionDefinition;
 import com.github.onsdigital.zebedee.permissions.model.AccessMapping;
@@ -351,4 +352,14 @@ public class JWTPermissionsServiceImpl implements PermissionsService {
     private boolean isGroupMember(Session session, String group) {
         return session.getGroups().contains(group);
     }
+
+    /**
+     * removePolicyForCollection removes a collection based permissions policy. This is not functional
+     * with this implementation - see {@link PermissionsServiceImplementation#removePolicyForCollection(String)}
+     */
+    @Override
+    public void removePolicyForCollection(String collectionId) throws ZebedeeException {
+        throw new UnsupportedOperationException(format(UNSUPPORTED_ERROR, "removePolicyForCollection"));
+    }
+    
 }

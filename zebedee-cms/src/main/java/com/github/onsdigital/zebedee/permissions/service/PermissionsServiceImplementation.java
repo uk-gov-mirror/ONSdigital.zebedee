@@ -2,9 +2,14 @@ package com.github.onsdigital.zebedee.permissions.service;
 
 import com.github.onsdigital.UserDataPayload;
 import com.github.onsdigital.dp.authorisation.permissions.PermissionChecker;
+import com.github.onsdigital.dp.permissions.api.sdk.PermissionsClient;
+import com.github.onsdigital.dp.permissions.api.sdk.exception.PolicyNotFoundException;
+import com.github.onsdigital.dp.permissions.api.sdk.exception.PermissionsAPIException;
+
 import com.github.onsdigital.zebedee.exceptions.BadRequestException;
 import com.github.onsdigital.zebedee.exceptions.NotFoundException;
 import com.github.onsdigital.zebedee.exceptions.UnauthorizedException;
+import com.github.onsdigital.zebedee.exceptions.InternalServerError;
 import com.github.onsdigital.zebedee.exceptions.ZebedeeException;
 import com.github.onsdigital.zebedee.json.CollectionType;
 import com.github.onsdigital.zebedee.json.PermissionDefinition;
@@ -19,6 +24,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import static com.github.onsdigital.zebedee.logging.CMSLogEvent.info;
+import static com.github.onsdigital.zebedee.logging.CMSLogEvent.warn;
+import static com.github.onsdigital.zebedee.logging.CMSLogEvent.error;
 
 import static java.text.MessageFormat.format;
 
@@ -27,19 +35,21 @@ public class PermissionsServiceImplementation implements PermissionsService {
     private final Lock readLock = readWriteLock.readLock();
     private static final String UNSUPPORTED_ERROR = "Permissions API is enabled: {0} is no longer supported";
     private PermissionChecker permissionChecker;
+    /** 
+     * permissionsAPIClient is used for managing collection based permissions policies, which are currently only used for viewer teams.
+     * This client uses the serviceAuthToken and so should only be used for background jobs, not for handling user requests where 
+     * the user's permissions should be checked.
+    */
+    private PermissionsClient permissionAPIClient;
 
     private static final Duration DEFAULT_CACHE_UPDATE_INTERVAL = Duration.standardSeconds(60);
     private static final Duration DEFAULT_EXPIRY_CHECK_INTERVAL = Duration.standardSeconds(60);
     private static final Duration DEFAULT_MAX_CACHE_TIME = Duration.standardMinutes(5);
 
-    public PermissionsServiceImplementation(String permissionsAPIHost ) {
+    public PermissionsServiceImplementation(PermissionsClient permissionAPIClient, String permissionsAPIHost) {
         this.permissionChecker = new PermissionChecker(permissionsAPIHost, DEFAULT_CACHE_UPDATE_INTERVAL, DEFAULT_EXPIRY_CHECK_INTERVAL, DEFAULT_MAX_CACHE_TIME);
+        this.permissionAPIClient = permissionAPIClient;
     }
-
-    public PermissionsServiceImplementation() {
-        this.permissionChecker = new PermissionChecker("", DEFAULT_CACHE_UPDATE_INTERVAL, DEFAULT_EXPIRY_CHECK_INTERVAL, DEFAULT_MAX_CACHE_TIME);
-    }
-
 
     @Override
     public boolean isPublisher(Session session) throws IOException {
@@ -142,6 +152,25 @@ public class PermissionsServiceImplementation implements PermissionsService {
     @Override
     public PermissionDefinition userPermissions(Session session) throws IOException {
         throw new UnsupportedOperationException(format(UNSUPPORTED_ERROR, "userPermissions"));
+    }
+
+     /**
+     * removePolicyForCollection removes a collection based permissions policy.
+     * @param collectionId the ID of the collection to remove the permissions policy for.
+     * @throws ZebedeeException if an error occurs while removing the permissions policy.
+     */
+    @Override
+    public void removePolicyForCollection(String collectionId) throws ZebedeeException {
+        info().collectionID(collectionId).log("removing permissions policy for collection");
+
+        try {
+            permissionAPIClient.deletePolicy(collectionId);
+        } catch (PolicyNotFoundException e) {
+            warn().collectionID(collectionId).log("no permissions policy found for collection id");
+        } catch (IOException | com.github.onsdigital.dp.permissions.api.sdk.exception.BadRequestException | PermissionsAPIException e) {
+            error().collectionID(collectionId).log("failed to remove permissions policy for collection id");
+            throw new InternalServerError(format("failed to remove permissions policy for collection id: {0}", collectionId), e);
+        }
     }
 
     private Boolean hasPermission(Session session, String permissionString, String collectionId, Optional<CollectionType> collectionType) throws Exception {

@@ -95,18 +95,26 @@ public class PostPublisher {
             copyFilesToMaster(zebedee, collection, collectionReader);
 
             if (cmsFeatureFlags().isRedirectAPIEnabled()) {
-                info().log("publishing redirects for collection");
+                info().collectionID(collection).log("publishing redirects for collection");
                 RedirectService redirectService = ZebedeeCmsService.getInstance().getRedirectService();
-                redirectService.publishRedirectsForCollection(collection, zebedeeSupplier.get().getSlackNotifier());
-                info().log("redirect processing complete");
+                redirectService.publishRedirectsForCollection(collection, zebedee.getSlackNotifier());
+                info().collectionID(collection).log("redirect processing complete");
             }
 
             // Publish content-updated and content-deleted events for search service.
             if (cmsFeatureFlags().isKafkaEnabled()) {
+                info().collectionID(collection).log("publishing search kafka messages for collection");
                 publishKafkaMessages(collection);
+                info().collectionID(collection).log("publishing search kafka messages for collection completed");
             }
 
-            Path collectionJsonPath = moveCollectionToArchive(zebedee, collection, collectionReader);
+            if (cmsFeatureFlags().isPermissionsAPIEnabled()) {
+                info().collectionID(collection).log("removing permissions policies for collection");
+                zebedee.getPermissionsService().removePolicyForCollection(collection.getId());
+                info().collectionID(collection).log("permissions policy removal for collection completed");
+            }
+
+            moveCollectionToArchive(zebedee, collection, collectionReader);
 
             collection.delete();
             ContentTree.dropCache();

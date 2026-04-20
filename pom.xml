@@ -23,7 +23,7 @@
         <encoding>UTF-8</encoding>
         <project.build.sourceEncoding>${encoding}</project.build.sourceEncoding>
         <project.reporting.outputEncoding>${encoding}</project.reporting.outputEncoding>
-        <restolino.version>0.8.2</restolino.version>
+        <restolino.version>v0.8.3</restolino.version>
         <httpino.version>0.0.11</httpino.version>
         <fasterxml.jackson.version>2.16.1</fasterxml.jackson.version>
         <apache.poi.version>3.17</apache.poi.version>
@@ -390,6 +390,16 @@
                     <fail>true</fail>
                     <cvssScoreThreshold>7.0</cvssScoreThreshold>
                     <excludeCoordinates>
+                        <!--
+                            Jira epic to remove the following exclusion: DIS-4777
+                         -->
+                        <exclude>
+                            <groupId>org.eclipse.jetty</groupId>
+                            <artifactId>jetty-http</artifactId>
+                            <version>9.4.58.v20250814</version>
+                        </exclude>
+                        <!-- End DIS-4777 -->
+
                         <!--
                             Jira epic to remove the following exclusion: DIS-1050
                          -->

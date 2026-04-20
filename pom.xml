@@ -391,16 +391,6 @@
                     <cvssScoreThreshold>7.0</cvssScoreThreshold>
                     <excludeCoordinates>
                         <!--
-                            Jira epic to remove the following exclusion: DIS-4777
-                         -->
-                        <exclude>
-                            <groupId>org.eclipse.jetty</groupId>
-                            <artifactId>jetty-http</artifactId>
-                            <version>9.4.58.v20250814</version>
-                        </exclude>
-                        <!-- End DIS-4777 -->
-
-                        <!--
                             Jira epic to remove the following exclusion: DIS-1050
                          -->
                         <exclude>
@@ -434,6 +424,14 @@
                             <version>1.28.5</version>
                         </exclude>
                     </excludeCoordinates>
+                    <excludeVulnerabilityIds>
+                        <!-- Note - OSS Index suppressions are global, not per dependency -->
+                        <!--
+                            Jira epic to remove the following exclusion: DIS-4777
+                         -->
+                        <exclude>CVE-2026-2332</exclude>
+                        <!-- End DIS-4777 -->
+                    </excludeVulnerabilityIds>
                 </configuration>
                 <executions>
                     <execution>

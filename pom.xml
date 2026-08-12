@@ -441,6 +441,11 @@
                         <exclude>CVE-2026-13006</exclude>
                         <!-- End DIS-5085 -->
 
+                         <!-- DIS-5289 
+                            Covers upgrading jackson 
+                        -->
+                        <exclude>CVE-2026-68497</exclude>
+                        <!-- End DIS-5289 -->
                     </excludeVulnerabilityIds>
                 </configuration>
                 <executions>

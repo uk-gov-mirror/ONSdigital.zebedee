@@ -433,6 +433,14 @@
                         <exclude>CVE-2026-2332</exclude>
                         <exclude>CVE-2026-10050</exclude>
                         <!-- End DIS-4777 -->
+
+                        <!-- 
+                            CVE covers logback-classic v1.3.16
+                            Epic to remove this exclusion: DIS-5085
+                        -->
+                        <exclude>CVE-2026-13006</exclude>
+                        <!-- End DIS-5085 -->
+
                     </excludeVulnerabilityIds>
                 </configuration>
                 <executions>
